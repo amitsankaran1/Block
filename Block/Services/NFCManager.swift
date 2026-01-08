@@ -9,78 +9,74 @@ import Foundation
 import CoreNFC
 import Combine
 
+@MainActor
 class NFCManager: NSObject, ObservableObject {
     static let shared = NFCManager()
-    
+
     @Published var isScanning = false
     @Published var lastScannedTag: String? = nil
     @Published var errorMessage: String? = nil
-    
+
     private var session: NFCNDEFReaderSession?
-    private let configStore = AppConfigurationStore.shared
-    private let screenTimeManager = ScreenTimeManager.shared
-    
+
     var onTagScanned: ((String) -> Void)?
-    
+
     override private init() {
         super.init()
     }
-    
+
     func startScanning() {
         guard NFCNDEFReaderSession.readingAvailable else {
             errorMessage = "NFC reading is not available on this device"
             return
         }
-        
+
         isScanning = true
         errorMessage = nil
-        
+
         session = NFCNDEFReaderSession(delegate: self, queue: nil, invalidateAfterFirstRead: false)
         session?.alertMessage = "Hold your iPhone near the NFC tag"
         session?.begin()
     }
-    
+
     func stopScanning() {
         session?.invalidate()
         session = nil
         isScanning = false
     }
-    
-    func handleBackgroundTag(_ identifier: String) {
+
+    func handleBackgroundTag(_ identifier: String, configStore: AppConfigurationStore, screenTimeManager: ScreenTimeManager) {
         guard let registeredTag = configStore.registeredTagIdentifier else {
             return
         }
-        
+
         if identifier == registeredTag {
             // Toggle blocking
-            Task { @MainActor in
-                screenTimeManager.toggleBlocking(for: configStore.selectedApps)
-            }
+            screenTimeManager.toggleBlocking(for: configStore.selectedApps)
         }
     }
-    
+
     private func extractTagIdentifier(from message: NFCNDEFMessage) -> String? {
-        // Extract identifier from NDEF message
-        // Use the payload of the first record as the identifier
-        guard let firstRecord = message.records.first else {
-            return nil
+        // Use the message's type and identifier for a more reliable unique identifier
+        // Combine all record payloads to create a consistent identifier
+        let payloads = message.records.map { $0.payload }
+        let combinedData = payloads.reduce(Data()) { $0 + $1 }
+
+        // If the combined data is small and UTF-8 compatible, use it
+        if combinedData.count < 256, let textIdentifier = String(data: combinedData, encoding: .utf8), !textIdentifier.isEmpty {
+            return textIdentifier
         }
-        
-        // Convert payload to string
-        if let payloadString = String(data: firstRecord.payload, encoding: .utf8) {
-            return payloadString
-        }
-        
-        // If not UTF-8, use base64 or hex representation
-        return firstRecord.payload.base64EncodedString()
+
+        // Otherwise use hex representation for reliability
+        return combinedData.map { String(format: "%02hhx", $0) }.joined()
     }
 }
 
 extension NFCManager: NFCNDEFReaderSessionDelegate {
-    func readerSession(_ session: NFCNDEFReaderSession, didInvalidateWithError error: Error) {
-        DispatchQueue.main.async {
+    nonisolated func readerSession(_ session: NFCNDEFReaderSession, didInvalidateWithError error: Error) {
+        Task { @MainActor in
             self.isScanning = false
-            
+
             if let nfcError = error as? NFCReaderError {
                 switch nfcError.code {
                 case .readerSessionInvalidationErrorUserCanceled:
@@ -96,30 +92,25 @@ extension NFCManager: NFCNDEFReaderSessionDelegate {
             }
         }
     }
-    
-    func readerSession(_ session: NFCNDEFReaderSession, didDetectNDEFs messages: [NFCNDEFMessage]) {
+
+    nonisolated func readerSession(_ session: NFCNDEFReaderSession, didDetectNDEFs messages: [NFCNDEFMessage]) {
         guard let message = messages.first else {
             return
         }
-        
+
         guard let identifier = extractTagIdentifier(from: message) else {
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self.errorMessage = "Could not read tag identifier"
             }
             return
         }
-        
-        DispatchQueue.main.async {
+
+        Task { @MainActor in
             self.lastScannedTag = identifier
             self.onTagScanned?(identifier)
-            
-            // If this is during registration, stop scanning
-            if self.configStore.registeredTagIdentifier == nil {
-                self.stopScanning()
-            } else {
-                // Handle toggle if tag matches registered tag
-                self.handleBackgroundTag(identifier)
-            }
+
+            // Stop scanning after successful tag read
+            self.stopScanning()
         }
     }
 }

@@ -8,12 +8,12 @@
 import SwiftUI
 
 struct TagRegistrationView: View {
-    @StateObject private var nfcManager = NFCManager.shared
-    @StateObject private var configStore = AppConfigurationStore.shared
+    @EnvironmentObject private var nfcManager: NFCManager
+    @EnvironmentObject private var configStore: AppConfigurationStore
     @Environment(\.dismiss) private var dismiss
-    
+
     @State private var isRegistering = false
-    
+
     var body: some View {
         NavigationView {
             VStack(spacing: 24) {
@@ -22,19 +22,21 @@ struct TagRegistrationView: View {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 60))
                             .foregroundColor(.green)
-                        
+
                         Text("Tag Registered")
                             .font(.title2)
                             .fontWeight(.semibold)
-                        
+
                         Text("Your NFC tag is registered and ready to use.")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
-                        
+
                         Button(role: .destructive) {
-                            configStore.clearTagRegistration()
+                            Task {
+                                await configStore.clearTagRegistration()
+                            }
                         } label: {
                             Text("Unregister Tag")
                         }
@@ -46,28 +48,30 @@ struct TagRegistrationView: View {
                         Image(systemName: "sensor.tag.radiowaves.forward.fill")
                             .font(.system(size: 60))
                             .foregroundColor(.blue)
-                        
+
                         Text("Register NFC Tag")
                             .font(.title2)
                             .fontWeight(.semibold)
-                        
+
                         Text("Hold your iPhone near an NFC tag to register it. Once registered, scanning this tag will toggle app blocking.")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
-                        
+
                         if nfcManager.isScanning {
                             ProgressView()
                                 .scaleEffect(1.5)
                                 .padding()
-                            
+
                             Text("Scanning for NFC tag...")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            
+
                             Button("Cancel") {
-                                nfcManager.stopScanning()
+                                Task {
+                                    await nfcManager.stopScanning()
+                                }
                             }
                             .buttonStyle(.bordered)
                         } else {
@@ -79,7 +83,7 @@ struct TagRegistrationView: View {
                             .buttonStyle(.borderedProminent)
                             .controlSize(.large)
                         }
-                        
+
                         if let error = nfcManager.errorMessage {
                             Text(error)
                                 .font(.caption)
@@ -104,25 +108,33 @@ struct TagRegistrationView: View {
             setupTagScanHandler()
         }
         .onDisappear {
-            nfcManager.stopScanning()
-        }
-    }
-    
-    private func setupTagScanHandler() {
-        nfcManager.onTagScanned = { identifier in
-            if !configStore.isTagRegistered && !isRegistering {
-                isRegistering = true
-                configStore.registerTag(identifier: identifier)
-                isRegistering = false
+            Task {
+                await nfcManager.stopScanning()
             }
         }
     }
-    
+
+    private func setupTagScanHandler() {
+        nfcManager.onTagScanned = { identifier in
+            Task { @MainActor in
+                if !configStore.isTagRegistered && !isRegistering {
+                    isRegistering = true
+                    await configStore.registerTag(identifier: identifier)
+                    isRegistering = false
+                }
+            }
+        }
+    }
+
     private func startRegistration() {
-        nfcManager.startScanning()
+        Task {
+            await nfcManager.startScanning()
+        }
     }
 }
 
 #Preview {
     TagRegistrationView()
+        .environmentObject(NFCManager.shared)
+        .environmentObject(AppConfigurationStore.shared)
 }

@@ -9,11 +9,13 @@ import SwiftUI
 import FamilyControls
 
 struct SettingsView: View {
-    @StateObject private var configStore = AppConfigurationStore.shared
-    @StateObject private var screenTimeManager = ScreenTimeManager.shared
+    @EnvironmentObject private var configStore: AppConfigurationStore
+    @EnvironmentObject private var screenTimeManager: ScreenTimeManager
     @State private var showPicker = false
     @State private var selectedTokenSet = FamilyActivitySelection()
-    
+    @State private var authTask: Task<Void, Never>?
+    @State private var updateTask: Task<Void, Never>?
+
     var body: some View {
         NavigationView {
             Form {
@@ -25,9 +27,9 @@ struct SettingsView: View {
                             Text("Please grant Screen Time permission in Settings to use app blocking features.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            
+
                             Button("Request Authorization") {
-                                Task {
+                                authTask = Task {
                                     do {
                                         try await screenTimeManager.requestAuthorization()
                                     } catch {
@@ -54,11 +56,13 @@ struct SettingsView: View {
                                     .font(.caption)
                             }
                         }
-                        
+
                         if !configStore.selectedApps.isEmpty {
                             Button(role: .destructive) {
-                                configStore.selectedApps.removeAll()
-                                screenTimeManager.disableBlocking()
+                                Task {
+                                    await configStore.selectedApps.removeAll()
+                                    await screenTimeManager.disableBlocking()
+                                }
                             } label: {
                                 Text("Clear Selection")
                             }
@@ -75,13 +79,27 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .familyActivityPicker(isPresented: $showPicker, selection: $selectedTokenSet)
             .onChange(of: selectedTokenSet) { newValue in
-                // Update selected apps when picker selection changes
-                configStore.selectedApps = Set(newValue.applicationTokens)
-                
-                // Update blocking if currently enabled
-                if configStore.isBlockingEnabled {
-                    screenTimeManager.updateBlocking(for: configStore.selectedApps)
+                // Update selected apps immediately
+                Task {
+                    await configStore.selectedApps = Set(newValue.applicationTokens)
                 }
+
+                // Debounce blocking updates to avoid excessive API calls
+                updateTask?.cancel()
+                updateTask = Task {
+                    try? await Task.sleep(nanoseconds: 500_000_000) // 500ms debounce
+
+                    guard !Task.isCancelled else { return }
+
+                    if await configStore.isBlockingEnabled {
+                        await screenTimeManager.updateBlocking(for: configStore.selectedApps)
+                    }
+                }
+            }
+            .onDisappear {
+                // Cancel any pending tasks when view disappears
+                authTask?.cancel()
+                updateTask?.cancel()
             }
         }
     }
@@ -89,4 +107,6 @@ struct SettingsView: View {
 
 #Preview {
     SettingsView()
+        .environmentObject(AppConfigurationStore.shared)
+        .environmentObject(ScreenTimeManager.shared)
 }
