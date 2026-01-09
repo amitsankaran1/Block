@@ -98,13 +98,12 @@ extension NFCManager: NFCTagReaderSessionDelegate {
                     self.errorMessage = "Session timed out. Please try again."
                     print("⏱️ NFC session timeout")
                 default:
-                    self.errorMessage = "NFC e
-                    rror: \(nfcError.localizedDescription)"
-                    print("❌ NFC error: \(nfcError.localizedDescription)")
+                    self.errorMessage = "NFC error: \(nfcError.localizedDescription)"
+                    print("NFC error: \(nfcError.localizedDescription)")
                 }
             } else {
                 self.errorMessage = "Error: \(error.localizedDescription)"
-                print("❌ Error: \(error.localizedDescription)")
+                print("Error: \(error.localizedDescription)")
             }
         }
     }
