@@ -9,116 +9,171 @@ import Foundation
 import CoreNFC
 import Combine
 
+@MainActor
 class NFCManager: NSObject, ObservableObject {
     static let shared = NFCManager()
-    
+
     @Published var isScanning = false
     @Published var lastScannedTag: String? = nil
     @Published var errorMessage: String? = nil
-    
-    private var session: NFCNDEFReaderSession?
+
+    private var session: NFCTagReaderSession?
     private let configStore = AppConfigurationStore.shared
     private let screenTimeManager = ScreenTimeManager.shared
-    
+
     var onTagScanned: ((String) -> Void)?
-    
+
     override private init() {
         super.init()
     }
-    
+
     func startScanning() {
-        guard NFCNDEFReaderSession.readingAvailable else {
+        guard NFCTagReaderSession.readingAvailable else {
             errorMessage = "NFC reading is not available on this device"
+            print("❌ NFC not available on this device")
             return
         }
-        
+
         isScanning = true
         errorMessage = nil
-        
-        session = NFCNDEFReaderSession(delegate: self, queue: nil, invalidateAfterFirstRead: false)
+        print("🔵 Starting NFC scan session...")
+
+        session = NFCTagReaderSession(pollingOption: .iso14443, delegate: self, queue: nil)
         session?.alertMessage = "Hold your iPhone near the NFC tag"
         session?.begin()
     }
-    
+
     func stopScanning() {
+        print("⏹️ Stopping NFC scan session")
         session?.invalidate()
         session = nil
         isScanning = false
     }
-    
+
     func handleBackgroundTag(_ identifier: String) {
         guard let registeredTag = configStore.registeredTagIdentifier else {
+            print("⚠️ No registered tag to compare")
             return
         }
-        
+
         if identifier == registeredTag {
-            // Toggle blocking
-            Task { @MainActor in
-                screenTimeManager.toggleBlocking(for: configStore.selectedApps)
-            }
+            print("✅ Tag matches - toggling blocking")
+            screenTimeManager.toggleBlocking(for: configStore.selectedApps)
+        } else {
+            print("❌ Tag doesn't match")
+            print("   Scanned: \(identifier)")
+            print("   Registered: \(registeredTag)")
         }
     }
-    
-    private func extractTagIdentifier(from message: NFCNDEFMessage) -> String? {
-        // Extract identifier from NDEF message
-        // Use the payload of the first record as the identifier
-        guard let firstRecord = message.records.first else {
-            return nil
+
+    // Debug function to simulate tag scan
+    func simulateTagScan(withId identifier: String) {
+        print("🧪 Simulating tag scan: \(identifier)")
+        lastScannedTag = identifier
+        onTagScanned?(identifier)
+
+        if configStore.registeredTagIdentifier == nil {
+            print("📝 No tag registered - registering: \(identifier)")
+        } else {
+            handleBackgroundTag(identifier)
         }
-        
-        // Convert payload to string
-        if let payloadString = String(data: firstRecord.payload, encoding: .utf8) {
-            return payloadString
-        }
-        
-        // If not UTF-8, use base64 or hex representation
-        return firstRecord.payload.base64EncodedString()
     }
 }
 
-extension NFCManager: NFCNDEFReaderSessionDelegate {
-    func readerSession(_ session: NFCNDEFReaderSession, didInvalidateWithError error: Error) {
-        DispatchQueue.main.async {
+extension NFCManager: NFCTagReaderSessionDelegate {
+    nonisolated func tagReaderSessionDidBecomeActive(_ session: NFCTagReaderSession) {
+        print("🟢 NFC session became active")
+    }
+
+    nonisolated func tagReaderSession(_ session: NFCTagReaderSession, didInvalidateWithError error: Error) {
+        Task { @MainActor in
             self.isScanning = false
-            
+
             if let nfcError = error as? NFCReaderError {
                 switch nfcError.code {
                 case .readerSessionInvalidationErrorUserCanceled:
-                    // User canceled - this is fine
+                    print("🚫 User canceled NFC scan")
                     break
                 case .readerSessionInvalidationErrorSessionTimeout:
                     self.errorMessage = "Session timed out. Please try again."
+                    print("⏱️ NFC session timeout")
                 default:
-                    self.errorMessage = "NFC error: \(nfcError.localizedDescription)"
+                    self.errorMessage = "NFC e
+                    rror: \(nfcError.localizedDescription)"
+                    print("❌ NFC error: \(nfcError.localizedDescription)")
                 }
             } else {
                 self.errorMessage = "Error: \(error.localizedDescription)"
+                print("❌ Error: \(error.localizedDescription)")
             }
         }
     }
-    
-    func readerSession(_ session: NFCNDEFReaderSession, didDetectNDEFs messages: [NFCNDEFMessage]) {
-        guard let message = messages.first else {
+
+    nonisolated func tagReaderSession(_ session: NFCTagReaderSession, didDetect tags: [NFCTag]) {
+        print("📡 Detected \(tags.count) tag(s)")
+
+        guard let tag = tags.first else {
+            print("❌ No tags in array")
             return
         }
-        
-        guard let identifier = extractTagIdentifier(from: message) else {
-            DispatchQueue.main.async {
-                self.errorMessage = "Could not read tag identifier"
+
+        session.connect(to: tag) { error in
+            if let error = error {
+                print("❌ Connection error: \(error.localizedDescription)")
+                session.invalidate(errorMessage: "Connection failed. Please try again.")
+                return
             }
-            return
-        }
-        
-        DispatchQueue.main.async {
-            self.lastScannedTag = identifier
-            self.onTagScanned?(identifier)
-            
-            // If this is during registration, stop scanning
-            if self.configStore.registeredTagIdentifier == nil {
-                self.stopScanning()
-            } else {
-                // Handle toggle if tag matches registered tag
-                self.handleBackgroundTag(identifier)
+
+            print("🔗 Connected to tag")
+
+            // Extract tag identifier based on tag type
+            var identifier: String?
+
+            switch tag {
+            case .iso7816(let iso7816Tag):
+                identifier = iso7816Tag.identifier.map { String(format: "%02hhx", $0) }.joined()
+                print("🏷️ ISO7816 tag ID: \(identifier ?? "nil")")
+
+            case .feliCa(let feliCaTag):
+                identifier = feliCaTag.currentIDm.map { String(format: "%02hhx", $0) }.joined()
+                print("🏷️ FeliCa tag ID: \(identifier ?? "nil")")
+
+            case .iso15693(let iso15693Tag):
+                identifier = iso15693Tag.identifier.map { String(format: "%02hhx", $0) }.joined()
+                print("🏷️ ISO15693 tag ID: \(identifier ?? "nil")")
+
+            case .miFare(let miFareTag):
+                identifier = miFareTag.identifier.map { String(format: "%02hhx", $0) }.joined()
+                print("🏷️ MiFare tag ID: \(identifier ?? "nil")")
+
+            @unknown default:
+                print("❓ Unknown tag type")
+                session.invalidate(errorMessage: "Unsupported tag type.")
+                return
+            }
+
+            guard let tagId = identifier else {
+                print("❌ Could not extract tag identifier")
+                session.invalidate(errorMessage: "Could not read tag.")
+                return
+            }
+
+            print("✅ Successfully read tag: \(tagId)")
+            session.alertMessage = "Tag detected!"
+            session.invalidate()
+
+            Task { @MainActor in
+                self.lastScannedTag = tagId
+                self.onTagScanned?(tagId)
+
+                if self.configStore.registeredTagIdentifier == nil {
+                    print("📝 Registering new tag")
+                    self.stopScanning()
+                } else {
+                    print("🔄 Handling tag for toggle")
+                    self.handleBackgroundTag(tagId)
+                    self.stopScanning()
+                }
             }
         }
     }

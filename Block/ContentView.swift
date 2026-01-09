@@ -11,118 +11,150 @@ import FamilyControls
 struct ContentView: View {
     @StateObject private var configStore = AppConfigurationStore.shared
     @StateObject private var screenTimeManager = ScreenTimeManager.shared
+    @StateObject private var nfcManager = NFCManager.shared
     @State private var showSettings = false
-    @State private var showTagRegistration = false
-    
+
     var body: some View {
         NavigationView {
-            VStack(spacing: 32) {
-                // Status Section
-                VStack(spacing: 16) {
+            VStack(spacing: 0) {
+                // Status at top
+                VStack(spacing: 12) {
                     Image(systemName: configStore.isBlockingEnabled ? "lock.shield.fill" : "lock.shield")
-                        .font(.system(size: 80))
+                        .font(.system(size: 60))
                         .foregroundColor(configStore.isBlockingEnabled ? .red : .gray)
-                    
+
                     Text(configStore.isBlockingEnabled ? "Blocking Active" : "Blocking Inactive")
-                        .font(.title)
-                        .fontWeight(.bold)
-                    
-                    Text(configStore.isBlockingEnabled ? "Selected apps are blocked" : "Scan your NFC tag to enable blocking")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
+                        .font(.title2)
+                        .fontWeight(.semibold)
+
+                    if configStore.hasSelectedApps {
+                        Text("\(configStore.selectedApps.count) apps blocked")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
-                .padding(.top, 40)
-                
-                // Setup Status
-                VStack(spacing: 12) {
-                    StatusRow(
-                        icon: screenTimeManager.authorizationStatus == .approved ? "checkmark.circle.fill" : "xmark.circle.fill",
-                        title: "Screen Time",
-                        status: screenTimeManager.authorizationStatus == .approved ? "Authorized" : "Not Authorized",
-                        isComplete: screenTimeManager.authorizationStatus == .approved
-                    )
-                    
-                    StatusRow(
-                        icon: configStore.hasSelectedApps ? "checkmark.circle.fill" : "xmark.circle.fill",
-                        title: "Apps Selected",
-                        status: configStore.hasSelectedApps ? "\(configStore.selectedApps.count) apps" : "No apps selected",
-                        isComplete: configStore.hasSelectedApps
-                    )
-                    
-                    StatusRow(
-                        icon: configStore.isTagRegistered ? "checkmark.circle.fill" : "xmark.circle.fill",
-                        title: "NFC Tag",
-                        status: configStore.isTagRegistered ? "Registered" : "Not Registered",
-                        isComplete: configStore.isTagRegistered
-                    )
-                }
-                .padding(.horizontal)
-                
+                .padding(.top, 60)
+
                 Spacer()
-                
-                // Action Buttons
-                VStack(spacing: 12) {
+
+                // Main scan button - centerpiece
+                if configStore.isTagRegistered && configStore.hasSelectedApps {
+                    if nfcManager.isScanning {
+                        VStack(spacing: 20) {
+                            ProgressView()
+                                .scaleEffect(2.0)
+
+                            Text("Hold iPhone near NFC tag")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+
+                            Text("Ready to scan")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+
+                            Button("Cancel") {
+                                nfcManager.stopScanning()
+                            }
+                            .buttonStyle(BorderedButtonStyle())
+                            .controlSize(.large)
+                            .padding(.top, 20)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(40)
+                    } else {
+                        Button {
+                            nfcManager.startScanning()
+                        } label: {
+                            VStack(spacing: 16) {
+                                Image(systemName: "sensor.tag.radiowaves.forward.fill")
+                                    .font(.system(size: 50))
+                                Text("Tap to Scan")
+                                    .font(.title2)
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 50)
+                        }
+                        .buttonStyle(BorderedProminentButtonStyle())
+                        .controlSize(.large)
+                        .padding(.horizontal, 40)
+                    }
+                } else {
+                    // Setup required
+                    VStack(spacing: 20) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 50))
+                            .foregroundColor(.orange)
+
+                        Text("Setup Required")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+
+                        Text("Configure your settings to get started")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Label("Open Settings", systemImage: "gear")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(BorderedProminentButtonStyle())
+                        .controlSize(.large)
+                        .padding(.top, 20)
+                    }
+                    .padding(.horizontal, 40)
+                }
+
+                Spacer()
+            }
+            .navigationTitle("Block")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         showSettings = true
                     } label: {
-                        Label("Settings", systemImage: "gear")
-                            .frame(maxWidth: .infinity)
+                        Image(systemName: "gear")
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    
-                    Button {
-                        showTagRegistration = true
-                    } label: {
-                        Label("Manage NFC Tag", systemImage: "sensor.tag.radiowaves.forward")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
                 }
-                .padding(.horizontal)
-                .padding(.bottom, 20)
             }
-            .navigationTitle("Tyri")
             .sheet(isPresented: $showSettings) {
-                SettingsView()
-            }
-            .sheet(isPresented: $showTagRegistration) {
-                TagRegistrationView()
+                NavigationView {
+                    SettingsView()
+                }
             }
             .onAppear {
                 screenTimeManager.checkAuthorizationStatus()
+                setupNFCHandler()
             }
         }
     }
-}
 
-struct StatusRow: View {
-    let icon: String
-    let title: String
-    let status: String
-    let isComplete: Bool
-    
-    var body: some View {
-        HStack {
-            Image(systemName: icon)
-                .foregroundColor(isComplete ? .green : .red)
-                .font(.title3)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.headline)
-                Text(status)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+    private func setupNFCHandler() {
+        // Set up handler to register or toggle based on state
+        nfcManager.onTagScanned = { [weak configStore, weak screenTimeManager] tagId in
+            guard let configStore = configStore,
+                  let screenTimeManager = screenTimeManager else { return }
+
+            if let registeredTag = configStore.registeredTagIdentifier {
+                // Tag already registered - toggle blocking
+                if tagId == registeredTag {
+                    print("✅ Matched registered tag - toggling blocking")
+                    screenTimeManager.toggleBlocking(for: configStore.selectedApps)
+                } else {
+                    print("❌ Scanned tag doesn't match registered tag")
+                    print("   Scanned: \(tagId)")
+                    print("   Registered: \(registeredTag)")
+                }
+            } else {
+                // No tag registered - register this tag
+                print("📝 No tag registered - registering tag: \(tagId)")
+                configStore.registerTag(identifier: tagId)
             }
-            
-            Spacer()
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(10)
     }
 }
 

@@ -38,7 +38,7 @@ struct TagRegistrationView: View {
                         } label: {
                             Text("Unregister Tag")
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(BorderedButtonStyle())
                     }
                     .padding()
                 } else {
@@ -69,14 +69,14 @@ struct TagRegistrationView: View {
                             Button("Cancel") {
                                 nfcManager.stopScanning()
                             }
-                            .buttonStyle(.bordered)
+                            .buttonStyle(BorderedButtonStyle())
                         } else {
                             Button {
                                 startRegistration()
                             } label: {
                                 Label("Start Scanning", systemImage: "sensor.tag.radiowaves.forward")
                             }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(BorderedProminentButtonStyle())
                             .controlSize(.large)
                         }
                         
