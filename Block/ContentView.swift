@@ -16,99 +16,132 @@ struct ContentView: View {
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                // Status at top
-                VStack(spacing: 12) {
-                    Image(systemName: configStore.isBlockingEnabled ? "lock.shield.fill" : "lock.shield")
-                        .font(.system(size: 60))
-                        .foregroundColor(configStore.isBlockingEnabled ? .red : .gray)
+            ZStack {
+                // Art Nouveau background
+                ArtNouveauBackground()
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 0) {
+                    // Status at top with decorative elements
+                    VStack(spacing: 16) {
+                        ZStack {
+                            // Decorative ornament behind icon
+                            ArtNouveauOrnament(size: 120)
+                                .opacity(0.15)
+                            
+                            Image(systemName: configStore.isBlockingEnabled ? "lock.shield.fill" : "lock.shield")
+                                .font(.system(size: 64, weight: .medium))
+                                .foregroundStyle(
+                                    configStore.isBlockingEnabled 
+                                    ? ArtNouveauTheme.primaryGradient
+                                    : LinearGradient(colors: [ArtNouveauTheme.oliveGreen.opacity(0.6), ArtNouveauTheme.tealGreen.opacity(0.4)], startPoint: .top, endPoint: .bottom)
+                                )
+                                .shadow(color: ArtNouveauTheme.forestGreen.opacity(0.25), radius: 10, x: 0, y: 5)
+                        }
+                        .frame(height: 100)
 
-                    Text(configStore.isBlockingEnabled ? "Blocking Active" : "Blocking Inactive")
-                        .font(.title2)
-                        .fontWeight(.semibold)
+                        VStack(spacing: 8) {
+                            Text(configStore.isBlockingEnabled ? "Blocking Active" : "Blocking Inactive")
+                                .font(ArtNouveauTheme.titleFont)
+                                .foregroundColor(ArtNouveauTheme.forestGreen)
 
-                    if configStore.hasSelectedApps {
-                        Text("\(configStore.selectedApps.count) apps blocked")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            if configStore.hasSelectedApps {
+                                Text("\(configStore.selectedApps.count) apps blocked")
+                                    .font(ArtNouveauTheme.bodyFont)
+                                    .foregroundColor(ArtNouveauTheme.oliveGreen.opacity(0.75))
+                            }
+                        }
                     }
-                }
-                .padding(.top, 60)
+                    .padding(.top, 60)
+                    .padding(.horizontal, 32)
 
-                Spacer()
+                    Spacer()
 
-                // Main scan button - centerpiece
-                if configStore.isTagRegistered && configStore.hasSelectedApps {
-                    if nfcManager.isScanning {
-                        VStack(spacing: 20) {
-                            ProgressView()
-                                .scaleEffect(2.0)
+                    // Main scan button - centerpiece with Art Nouveau styling
+                    if configStore.isTagRegistered && configStore.hasSelectedApps {
+                        if nfcManager.isScanning {
+                            ArtNouveauCard {
+                                VStack(spacing: 24) {
+                                    ProgressView()
+                                        .tint(ArtNouveauTheme.forestGreen)
+                                        .scaleEffect(2.0)
 
-                            Text("Hold iPhone near NFC tag")
-                                .font(.headline)
-                                .foregroundColor(.primary)
+                                    VStack(spacing: 8) {
+                                        Text("Hold iPhone near NFC tag")
+                                            .font(ArtNouveauTheme.headlineFont)
+                                            .foregroundColor(ArtNouveauTheme.forestGreen)
 
-                            Text("Ready to scan")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+                                        Text("Ready to scan")
+                                            .font(ArtNouveauTheme.bodyFont)
+                                            .foregroundColor(ArtNouveauTheme.oliveGreen.opacity(0.75))
+                                    }
 
-                            Button("Cancel") {
-                                nfcManager.stopScanning()
+                                    Button("Cancel") {
+                                        nfcManager.stopScanning()
+                                    }
+                                    .buttonStyle(ArtNouveauButtonStyle(isProminent: false))
+                                    .padding(.top, 8)
+                                }
                             }
-                            .buttonStyle(BorderedButtonStyle())
-                            .controlSize(.large)
-                            .padding(.top, 20)
+                            .padding(.horizontal, 40)
+                        } else {
+                            Button {
+                                nfcManager.startScanning()
+                            } label: {
+                                VStack(spacing: 20) {
+                                    ZStack {
+                                        ArtNouveauOrnament(size: 100)
+                                            .opacity(0.2)
+                                        
+                                        Image(systemName: "sensor.tag.radiowaves.forward.fill")
+                                            .font(.system(size: 56, weight: .medium))
+                                            .foregroundColor(.white)
+                                    }
+                                    
+                                    Text("Tap to Scan")
+                                        .font(ArtNouveauTheme.titleFont)
+                                        .foregroundColor(.white)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 50)
+                            }
+                            .buttonStyle(ArtNouveauButtonStyle(isProminent: true))
+                            .padding(.horizontal, 40)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(40)
                     } else {
-                        Button {
-                            nfcManager.startScanning()
-                        } label: {
-                            VStack(spacing: 16) {
-                                Image(systemName: "sensor.tag.radiowaves.forward.fill")
-                                    .font(.system(size: 50))
-                                Text("Tap to Scan")
-                                    .font(.title2)
-                                    .fontWeight(.semibold)
+                        // Setup required with Art Nouveau styling
+                        ArtNouveauCard {
+                            VStack(spacing: 24) {
+                                Image(systemName: "exclamationmark.triangle")
+                                    .font(.system(size: 56, weight: .medium))
+                                    .foregroundStyle(ArtNouveauTheme.goldGradient)
+
+                                VStack(spacing: 12) {
+                                    Text("Setup Required")
+                                        .font(ArtNouveauTheme.titleFont)
+                                        .foregroundColor(ArtNouveauTheme.forestGreen)
+
+                                    Text("Configure your settings to get started")
+                                        .font(ArtNouveauTheme.bodyFont)
+                                        .foregroundColor(ArtNouveauTheme.oliveGreen.opacity(0.75))
+                                        .multilineTextAlignment(.center)
+                                }
+
+                                Button {
+                                    showSettings = true
+                                } label: {
+                                    Label("Open Settings", systemImage: "gear")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(ArtNouveauButtonStyle(isProminent: true))
+                                .padding(.top, 8)
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 50)
                         }
-                        .buttonStyle(BorderedProminentButtonStyle())
-                        .controlSize(.large)
                         .padding(.horizontal, 40)
                     }
-                } else {
-                    // Setup required
-                    VStack(spacing: 20) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.system(size: 50))
-                            .foregroundColor(.orange)
 
-                        Text("Setup Required")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-
-                        Text("Configure your settings to get started")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-
-                        Button {
-                            showSettings = true
-                        } label: {
-                            Label("Open Settings", systemImage: "gear")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(BorderedProminentButtonStyle())
-                        .controlSize(.large)
-                        .padding(.top, 20)
-                    }
-                    .padding(.horizontal, 40)
+                    Spacer()
                 }
-
-                Spacer()
             }
             .navigationTitle("Block")
             .navigationBarTitleDisplayMode(.inline)
@@ -117,7 +150,12 @@ struct ContentView: View {
                     Button {
                         showSettings = true
                     } label: {
-                        Image(systemName: "gear")
+                        HStack(spacing: 4) {
+                            Image(systemName: "gear")
+                            Text("Settings")
+                        }
+                        .foregroundColor(ArtNouveauTheme.forestGreen)
+                        .font(ArtNouveauTheme.bodyFont)
                     }
                 }
             }

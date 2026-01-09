@@ -16,79 +16,108 @@ struct TagRegistrationView: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 24) {
-                if configStore.isTagRegistered {
-                    VStack(spacing: 16) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 60))
-                            .foregroundColor(.green)
-                        
-                        Text("Tag Registered")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                        
-                        Text("Your NFC tag is registered and ready to use.")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal)
-                        
-                        Button(role: .destructive) {
-                            configStore.clearTagRegistration()
-                        } label: {
-                            Text("Unregister Tag")
-                        }
-                        .buttonStyle(BorderedButtonStyle())
-                    }
-                    .padding()
-                } else {
-                    VStack(spacing: 24) {
-                        Image(systemName: "sensor.tag.radiowaves.forward.fill")
-                            .font(.system(size: 60))
-                            .foregroundColor(.blue)
-                        
-                        Text("Register NFC Tag")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                        
-                        Text("Hold your iPhone near an NFC tag to register it. Once registered, scanning this tag will toggle app blocking.")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal)
-                        
-                        if nfcManager.isScanning {
-                            ProgressView()
-                                .scaleEffect(1.5)
-                                .padding()
-                            
-                            Text("Scanning for NFC tag...")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            Button("Cancel") {
-                                nfcManager.stopScanning()
+            ZStack {
+                ArtNouveauBackground()
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 32) {
+                    if configStore.isTagRegistered {
+                        ArtNouveauCard {
+                            VStack(spacing: 24) {
+                                ZStack {
+                                    ArtNouveauOrnament(size: 120)
+                                        .opacity(0.15)
+                                    
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 64, weight: .medium))
+                                        .foregroundStyle(ArtNouveauTheme.primaryGradient)
+                                        .shadow(color: ArtNouveauTheme.forestGreen.opacity(0.25), radius: 10, x: 0, y: 5)
+                                }
+                                .frame(height: 100)
+                                
+                                VStack(spacing: 12) {
+                                    Text("Tag Registered")
+                                        .font(ArtNouveauTheme.titleFont)
+                                        .foregroundColor(ArtNouveauTheme.forestGreen)
+                                    
+                                    Text("Your NFC tag is registered and ready to use.")
+                                        .font(ArtNouveauTheme.bodyFont)
+                                        .foregroundColor(ArtNouveauTheme.oliveGreen.opacity(0.75))
+                                        .multilineTextAlignment(.center)
+                                }
+                                
+                                Button(role: .destructive) {
+                                    configStore.clearTagRegistration()
+                                } label: {
+                                    Text("Unregister Tag")
+                                }
+                                .buttonStyle(ArtNouveauButtonStyle(isProminent: false))
                             }
-                            .buttonStyle(BorderedButtonStyle())
-                        } else {
-                            Button {
-                                startRegistration()
-                            } label: {
-                                Label("Start Scanning", systemImage: "sensor.tag.radiowaves.forward")
+                        }
+                        .padding(.horizontal, 32)
+                    } else {
+                        ArtNouveauCard {
+                            VStack(spacing: 32) {
+                                ZStack {
+                                    ArtNouveauOrnament(size: 120)
+                                        .opacity(0.15)
+                                    
+                                    Image(systemName: "sensor.tag.radiowaves.forward.fill")
+                                        .font(.system(size: 64, weight: .medium))
+                                        .foregroundStyle(ArtNouveauTheme.primaryGradient)
+                                        .shadow(color: ArtNouveauTheme.forestGreen.opacity(0.25), radius: 10, x: 0, y: 5)
+                                }
+                                .frame(height: 100)
+                                
+                                VStack(spacing: 16) {
+                                    Text("Register NFC Tag")
+                                        .font(ArtNouveauTheme.titleFont)
+                                        .foregroundColor(ArtNouveauTheme.forestGreen)
+                                    
+                                    Text("Hold your iPhone near an NFC tag to register it. Once registered, scanning this tag will toggle app blocking.")
+                                        .font(ArtNouveauTheme.bodyFont)
+                                        .foregroundColor(ArtNouveauTheme.oliveGreen.opacity(0.75))
+                                        .multilineTextAlignment(.center)
+                                }
+                                
+                                if nfcManager.isScanning {
+                                    VStack(spacing: 20) {
+                                        ProgressView()
+                                            .tint(ArtNouveauTheme.forestGreen)
+                                            .scaleEffect(1.5)
+                                        
+                                        Text("Scanning for NFC tag...")
+                                            .font(ArtNouveauTheme.bodyFont)
+                                            .foregroundColor(ArtNouveauTheme.oliveGreen.opacity(0.75))
+                                        
+                                        Button("Cancel") {
+                                            nfcManager.stopScanning()
+                                        }
+                                        .buttonStyle(ArtNouveauButtonStyle(isProminent: false))
+                                    }
+                                } else {
+                                    Button {
+                                        startRegistration()
+                                    } label: {
+                                        Label("Start Scanning", systemImage: "sensor.tag.radiowaves.forward")
+                                            .frame(maxWidth: .infinity)
+                                    }
+                                    .buttonStyle(ArtNouveauButtonStyle(isProminent: true))
+                                }
+                                
+                                if let error = nfcManager.errorMessage {
+                                    Text(error)
+                                        .font(ArtNouveauTheme.bodyFont)
+                                        .foregroundColor(ArtNouveauTheme.accentRose)
+                                        .multilineTextAlignment(.center)
+                                        .padding(.top, 8)
+                                }
                             }
-                            .buttonStyle(BorderedProminentButtonStyle())
-                            .controlSize(.large)
                         }
-                        
-                        if let error = nfcManager.errorMessage {
-                            Text(error)
-                                .font(.caption)
-                                .foregroundColor(.red)
-                                .padding(.horizontal)
-                        }
+                        .padding(.horizontal, 32)
                     }
-                    .padding()
                 }
+                .padding(.vertical)
             }
             .navigationTitle("NFC Tag")
             .navigationBarTitleDisplayMode(.inline)
@@ -97,6 +126,8 @@ struct TagRegistrationView: View {
                     Button("Done") {
                         dismiss()
                     }
+                    .foregroundColor(ArtNouveauTheme.forestGreen)
+                    .font(ArtNouveauTheme.bodyFont)
                 }
             }
         }
