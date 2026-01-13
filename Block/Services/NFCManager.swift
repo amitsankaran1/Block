@@ -172,16 +172,16 @@ extension NFCManager: NFCTagReaderSessionDelegate {
                 // (callback might register the tag, changing the state)
                 let wasRegistered = self.configStore.registeredTagIdentifier != nil
 
+                // Call the callback - ContentView will handle toggling if tag is registered
                 self.onTagScanned?(tagId)
 
                 if !wasRegistered {
                     print("📝 Tag registration completed")
-                    self.stopScanning()
                 } else {
-                    print("🔄 Handling tag for toggle")
-                    self.handleBackgroundTag(tagId)
-                    self.stopScanning()
+                    print("🔄 Tag scan handled by callback")
                 }
+                
+                self.stopScanning()
             }
         }
     }

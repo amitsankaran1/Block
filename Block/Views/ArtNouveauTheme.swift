@@ -12,6 +12,7 @@ struct ArtNouveauTheme {
     // Modern Color Palette - Rich and vibrant
     static let primary = Color(red: 0.26, green: 0.40, blue: 0.98) // Vibrant blue
     static let primaryDark = Color(red: 0.20, green: 0.32, blue: 0.88)
+    static let primaryLight = Color(red: 0.26, green: 0.40, blue: 0.98).opacity(0.15)
     static let secondary = Color(red: 0.40, green: 0.47, blue: 0.95)
     static let accent = Color(red: 0.55, green: 0.45, blue: 0.95) // Purple accent
 
@@ -169,21 +170,36 @@ struct ArtNouveauBackground: View {
     }
 }
 
-// Modern Card Style - Clean with subtle shadow
+// Modern Card Style - Rich with depth, shadows, and optional glassmorphism
 struct ArtNouveauCard<Content: View>: View {
     let content: Content
+    var useGlassmorphism: Bool = false
+    var shadow: ArtNouveauTheme.Shadow = ArtNouveauTheme.shadowMedium
 
-    init(@ViewBuilder content: () -> Content) {
+    init(useGlassmorphism: Bool = false, shadow: ArtNouveauTheme.Shadow = ArtNouveauTheme.shadowMedium, @ViewBuilder content: () -> Content) {
         self.content = content()
+        self.useGlassmorphism = useGlassmorphism
+        self.shadow = shadow
     }
 
     var body: some View {
         content
             .padding(24)
             .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(ArtNouveauTheme.secondaryBackground)
-                    .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 4)
+                Group {
+                    if useGlassmorphism {
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .stroke(ArtNouveauTheme.border, lineWidth: 1)
+                            )
+                    } else {
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(ArtNouveauTheme.secondaryBackground)
+                            .shadow(color: shadow.color, radius: shadow.radius, x: shadow.x, y: shadow.y)
+                    }
+                }
             )
     }
 }

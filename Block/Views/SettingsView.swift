@@ -17,175 +17,299 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
-        Form {
+        ScrollView {
+            VStack(spacing: 24) {
                 // NFC Tag Section
-                Section {
-                    // Status display
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(configStore.isTagRegistered ? "Tag Registered" : "No Tag Registered")
-                                .font(.headline)
-
-                            Text("Register an NFC tag to toggle blocking on and off.")
-                                .font(.caption)
-                                .foregroundColor(ArtNouveauTheme.secondaryLabel)
-                        }
-                        Spacer()
-
-                        Image(systemName: configStore.isTagRegistered ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                            .foregroundColor(configStore.isTagRegistered ? ArtNouveauTheme.success : ArtNouveauTheme.warning)
-                            .font(.title2)
-                            .symbolRenderingMode(.hierarchical)
-                    }
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Blocking Tag")
+                        .font(.system(.headline, design: .default).weight(.bold))
+                        .foregroundColor(ArtNouveauTheme.label)
+                        .padding(.horizontal, 24)
                     
-                    // Action buttons
-                    if configStore.isTagRegistered {
-                        Button(role: .destructive) {
-                            configStore.clearTagRegistration()
-                        } label: {
-                            Label("Unregister Tag", systemImage: "xmark.circle")
-                        }
-                    } else {
-                        NavigationLink {
-                            TagRegistrationView()
-                        } label: {
-                            Label("Register NFC Tag", systemImage: "sensor.tag.radiowaves.forward")
+                    ArtNouveauCard(shadow: ArtNouveauTheme.shadowMedium) {
+                        VStack(spacing: 16) {
+                            // Status display
+                            HStack(spacing: 16) {
+                                ZStack {
+                                    Circle()
+                                        .fill(
+                                            configStore.isTagRegistered 
+                                                ? ArtNouveauTheme.successLight 
+                                                : ArtNouveauTheme.warningLight
+                                        )
+                                        .frame(width: 56, height: 56)
+                                    
+                                    Image(systemName: configStore.isTagRegistered ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                                        .foregroundColor(configStore.isTagRegistered ? ArtNouveauTheme.success : ArtNouveauTheme.warning)
+                                        .font(.system(size: 28, weight: .semibold))
+                                        .symbolRenderingMode(.hierarchical)
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(configStore.isTagRegistered ? "Tag Connected" : "No Tag Connected")
+                                        .font(.system(.headline, design: .default).weight(.bold))
+                                        .foregroundColor(ArtNouveauTheme.label)
+
+                                    Text("Connect a tag to start and stop blocking with a simple tap.")
+                                        .font(.system(.subheadline, design: .default))
+                                        .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                                }
+                                
+                                Spacer()
+                            }
+                            
+                            Divider()
+                            
+                            // Action buttons
+                            if configStore.isTagRegistered {
+                                Button {
+                                    configStore.clearTagRegistration()
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "xmark.circle")
+                                        Text("Disconnect Tag")
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(ArtNouveauButtonStyle(isProminent: false))
+                            } else {
+                                NavigationLink {
+                                    TagRegistrationView()
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "sensor.tag.radiowaves.forward")
+                                        Text("Connect Your Tag")
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(ArtNouveauButtonStyle(isProminent: true))
+                            }
                         }
                     }
-                } header: {
-                    Text("NFC Tag")
+                    .padding(.horizontal, 24)
                 }
 
                 // App Selection Section
-                Section {
-                    if screenTimeManager.authorizationStatus != .approved {
-                        // Status display
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Authorization Required")
-                                    .font(.headline)
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Apps to Block")
+                        .font(.system(.headline, design: .default).weight(.bold))
+                        .foregroundColor(ArtNouveauTheme.label)
+                        .padding(.horizontal, 24)
+                    
+                    ArtNouveauCard(shadow: ArtNouveauTheme.shadowMedium) {
+                        VStack(spacing: 16) {
+                            if screenTimeManager.authorizationStatus != .approved {
+                                // Status display
+                                HStack(spacing: 16) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(ArtNouveauTheme.warningLight)
+                                            .frame(width: 56, height: 56)
+                                        
+                                        Image(systemName: "exclamationmark.triangle.fill")
+                                            .foregroundColor(ArtNouveauTheme.warning)
+                                            .font(.system(size: 28, weight: .semibold))
+                                            .symbolRenderingMode(.hierarchical)
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text("Authorization Required")
+                                            .font(.system(.headline, design: .default).weight(.bold))
+                                            .foregroundColor(ArtNouveauTheme.label)
 
-                                Text("Grant Screen Time permission to select apps to block.")
-                                    .font(.caption)
-                                    .foregroundColor(ArtNouveauTheme.secondaryLabel)
-                            }
-                            Spacer()
-
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(ArtNouveauTheme.warning)
-                                .font(.title2)
-                                .symbolRenderingMode(.hierarchical)
-                        }
-
-                        // Action button
-                        Button {
-                            Task {
-                                do {
-                                    try await screenTimeManager.requestAuthorization()
-                                } catch {
-                                    print("Authorization error: \(error)")
+                                        Text("Grant Screen Time permission to select apps to block.")
+                                            .font(.system(.subheadline, design: .default))
+                                            .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                                    }
+                                    
+                                    Spacer()
                                 }
-                            }
-                        } label: {
-                            Label("Request Authorization", systemImage: "lock.open")
-                        }
-                        .buttonStyle(ArtNouveauButtonStyle(isProminent: true))
-                    } else {
-                        // Status display
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(configStore.selectedApps.isEmpty ? "No Apps Selected" : "\(configStore.selectedApps.count) App\(configStore.selectedApps.count == 1 ? "" : "s") Selected")
-                                    .font(.headline)
 
-                                Text("Select the apps you want to block when you scan your NFC tag.")
-                                    .font(.caption)
-                                    .foregroundColor(ArtNouveauTheme.secondaryLabel)
-                            }
-                            Spacer()
+                                Divider()
 
-                            Image(systemName: configStore.selectedApps.isEmpty ? "app.badge" : "checkmark.circle.fill")
-                                .foregroundColor(configStore.selectedApps.isEmpty ? ArtNouveauTheme.warning : ArtNouveauTheme.success)
-                                .font(.title2)
-                                .symbolRenderingMode(.hierarchical)
-                        }
-
-                        // Show warning if blocking is active
-                        if configStore.isBlockingEnabled {
-                            HStack(spacing: 12) {
-                                Image(systemName: "lock.shield.fill")
-                                    .font(.title2)
-                                    .foregroundColor(ArtNouveauTheme.primary)
-                                    .symbolRenderingMode(.hierarchical)
-
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Blocking Active")
-                                        .font(.headline)
-
-                                    Text("Scan your NFC tag to disable blocking before modifying app selection.")
-                                        .font(.caption)
-                                        .foregroundColor(ArtNouveauTheme.secondaryLabel)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                            }
-                            .padding(12)
-                            .background(ArtNouveauTheme.primary.opacity(0.1))
-                            .cornerRadius(12)
-                        } else {
-                            // Action button - only enabled when blocking is inactive
-                            Button {
-                                showPicker = true
-                            } label: {
-                                Label(configStore.selectedApps.isEmpty ? "Select Apps to Block" : "Edit App Selection", systemImage: "square.grid.2x2")
-                            }
-
-                            if !configStore.selectedApps.isEmpty {
-                                Button(role: .destructive) {
-                                    configStore.selectedApps.removeAll()
-                                    screenTimeManager.disableBlocking()
+                                // Action button
+                                Button {
+                                    Task {
+                                        do {
+                                            try await screenTimeManager.requestAuthorization()
+                                        } catch {
+                                            print("Authorization error: \(error)")
+                                        }
+                                    }
                                 } label: {
-                                    Label("Clear Selection", systemImage: "trash")
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "lock.open")
+                                        Text("Request Authorization")
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(ArtNouveauButtonStyle(isProminent: true))
+                            } else {
+                                // Status display
+                                HStack(spacing: 16) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(
+                                                configStore.selectedApps.isEmpty 
+                                                    ? ArtNouveauTheme.warningLight 
+                                                    : ArtNouveauTheme.successLight
+                                            )
+                                            .frame(width: 56, height: 56)
+                                        
+                                        Image(systemName: configStore.selectedApps.isEmpty ? "app.badge" : "checkmark.circle.fill")
+                                            .foregroundColor(configStore.selectedApps.isEmpty ? ArtNouveauTheme.warning : ArtNouveauTheme.success)
+                                            .font(.system(size: 28, weight: .semibold))
+                                            .symbolRenderingMode(.hierarchical)
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text(configStore.selectedApps.isEmpty ? "No Apps Selected" : "\(configStore.selectedApps.count) App\(configStore.selectedApps.count == 1 ? "" : "s") Selected")
+                                            .font(.system(.headline, design: .default).weight(.bold))
+                                            .foregroundColor(ArtNouveauTheme.label)
+
+                                        Text("Select the apps you want to block when you tap your tag.")
+                                            .font(.system(.subheadline, design: .default))
+                                            .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                                    }
+                                    
+                                    Spacer()
+                                }
+
+                                // Show warning if blocking is active
+                                if configStore.isBlockingEnabled {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "lock.shield.fill")
+                                            .font(.system(size: 20, weight: .semibold))
+                                            .foregroundColor(ArtNouveauTheme.primary)
+                                            .symbolRenderingMode(.hierarchical)
+
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("Blocking Active")
+                                                .font(.system(.subheadline, design: .default).weight(.bold))
+                                                .foregroundColor(ArtNouveauTheme.primary)
+
+                                            Text("Tap your tag to stop blocking before modifying app selection.")
+                                                .font(.system(.caption, design: .default))
+                                                .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                                                .fixedSize(horizontal: false, vertical: true)
+                                        }
+                                    }
+                                    .padding(14)
+                                    .background(ArtNouveauTheme.primaryLight)
+                                    .cornerRadius(14)
+                                } else {
+                                    Divider()
+                                    
+                                    // Action button - only enabled when blocking is inactive
+                                    Button {
+                                        showPicker = true
+                                    } label: {
+                                        HStack(spacing: 10) {
+                                            Image(systemName: "square.grid.2x2")
+                                            Text(configStore.selectedApps.isEmpty ? "Select Apps to Block" : "Edit App Selection")
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                    }
+                                    .buttonStyle(ArtNouveauButtonStyle(isProminent: true))
+
+                                    if !configStore.selectedApps.isEmpty {
+                                        Button {
+                                            configStore.selectedApps.removeAll()
+                                            screenTimeManager.disableBlocking()
+                                        } label: {
+                                            HStack(spacing: 10) {
+                                                Image(systemName: "trash")
+                                                Text("Clear Selection")
+                                            }
+                                            .frame(maxWidth: .infinity)
+                                        }
+                                        .buttonStyle(ArtNouveauButtonStyle(isProminent: false))
+                                    }
                                 }
                             }
                         }
                     }
-                } header: {
-                    Text("Apps to Block")
-                } footer: {
+                    .padding(.horizontal, 24)
+                    
                     if screenTimeManager.authorizationStatus == .approved {
                         Text("Tap 'Done' in the app selector to confirm your selection.")
+                            .font(.system(.caption, design: .default))
+                            .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                            .padding(.horizontal, 24)
                     }
                 }
 
                 // Emergency Override Section
                 if configStore.isBlockingEnabled {
-                    Section {
-                        Button {
-                            showTypingChallenge = true
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Emergency Override")
-                                        .font(.headline)
-                                        .foregroundColor(ArtNouveauTheme.warning)
-
-                                    Text("Type a passage to disable blocking without your NFC tag.")
-                                        .font(.caption)
-                                        .foregroundColor(ArtNouveauTheme.secondaryLabel)
-                                }
-                                Spacer()
-                                Image(systemName: "keyboard")
-                                    .foregroundColor(ArtNouveauTheme.warning)
-                                    .font(.title2)
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    } header: {
+                    VStack(alignment: .leading, spacing: 16) {
                         Text("Emergency Access")
-                    } footer: {
-                        Text("Use this only when you don't have access to your NFC tag.")
+                            .font(.system(.headline, design: .default).weight(.bold))
+                            .foregroundColor(ArtNouveauTheme.label)
+                            .padding(.horizontal, 24)
+                        
+                        ArtNouveauCard(shadow: ArtNouveauTheme.shadowMedium) {
+                            VStack(spacing: 16) {
+                                HStack(spacing: 16) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(ArtNouveauTheme.warningLight)
+                                            .frame(width: 56, height: 56)
+                                        
+                                        Image(systemName: "keyboard")
+                                            .foregroundColor(ArtNouveauTheme.warning)
+                                            .font(.system(size: 28, weight: .semibold))
+                                            .symbolRenderingMode(.hierarchical)
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text("Emergency Override")
+                                            .font(.system(.headline, design: .default).weight(.bold))
+                                            .foregroundColor(ArtNouveauTheme.warning)
+
+                                        Text("Type a passage to disable blocking without your tag.")
+                                            .font(.system(.subheadline, design: .default))
+                                            .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                                    }
+                                    
+                                    Spacer()
+                                }
+                                
+                                Divider()
+                                
+                                Button {
+                                    showTypingChallenge = true
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "keyboard")
+                                        Text("Start Typing Challenge")
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(ArtNouveauButtonStyle(isProminent: true, gradient: ArtNouveauTheme.goldGradient))
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        
+                        Text("Use this only when you don't have access to your tag.")
+                            .font(.system(.caption, design: .default))
+                            .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                            .padding(.horizontal, 24)
                     }
                 }
             }
+            .padding(.vertical, 20)
+        }
+        .background(
+            LinearGradient(
+                colors: [
+                    ArtNouveauTheme.background,
+                    ArtNouveauTheme.secondaryBackground.opacity(0.3)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        )
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

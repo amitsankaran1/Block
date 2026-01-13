@@ -23,69 +23,81 @@ I am choosing to use my time wisely. These apps distract me from my goals and wa
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: 32) {
+                VStack(spacing: 28) {
                     // Header
-                    VStack(spacing: 12) {
-                        Image(systemName: "keyboard.fill")
-                            .font(.system(size: 50, weight: .medium))
-                            .foregroundColor(ArtNouveauTheme.warning)
-                            .symbolRenderingMode(.hierarchical)
+                    VStack(spacing: 20) {
+                        ZStack {
+                            Circle()
+                                .fill(ArtNouveauTheme.warningLight)
+                                .frame(width: 100, height: 100)
+                            
+                            Image(systemName: "keyboard.fill")
+                                .font(.system(size: 50, weight: .semibold))
+                                .foregroundColor(ArtNouveauTheme.warning)
+                                .symbolRenderingMode(.hierarchical)
+                        }
+                        .shadow(color: ArtNouveauTheme.warning.opacity(0.3), radius: 12, x: 0, y: 6)
 
-                        Text("Emergency Override")
-                            .font(.title2.bold())
+                        VStack(spacing: 10) {
+                            Text("Emergency Override")
+                                .font(.system(.title, design: .default).weight(.bold))
+                                .foregroundColor(ArtNouveauTheme.label)
 
-                        Text("Type the passage below exactly to disable blocking without your NFC tag.")
-                            .font(.subheadline)
-                            .foregroundColor(ArtNouveauTheme.secondaryLabel)
-                            .multilineTextAlignment(.center)
+                            Text("Type the passage below exactly to disable blocking without your tag.")
+                                .font(.system(.subheadline, design: .default).weight(.medium))
+                                .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                                .multilineTextAlignment(.center)
+                        }
                     }
                     .padding(.horizontal, 32)
-                    .padding(.top, 20)
+                    .padding(.top, 32)
 
                     // Challenge text to type
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 14) {
                         Text("Type this passage:")
-                            .font(.caption.weight(.semibold))
+                            .font(.system(.caption, design: .default).weight(.bold))
                             .foregroundColor(ArtNouveauTheme.secondaryLabel)
                             .textCase(.uppercase)
+                            .tracking(1.0)
 
-                        Text(challengeText)
-                            .font(.body)
-                            .padding(16)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(ArtNouveauTheme.primary.opacity(0.1))
-                            .cornerRadius(12)
+                        ArtNouveauCard(shadow: ArtNouveauTheme.shadowSmall) {
+                            Text(challengeText)
+                                .font(.system(.body, design: .default))
+                                .foregroundColor(ArtNouveauTheme.label)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.vertical, 4)
+                        }
                     }
-                    .padding(.horizontal, 32)
+                    .padding(.horizontal, 24)
 
                     // Input area
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 14) {
                         HStack {
                             Text("Type here:")
-                                .font(.headline)
+                                .font(.system(.headline, design: .default).weight(.bold))
                                 .foregroundColor(ArtNouveauTheme.label)
 
                             Spacer()
 
                             Image(systemName: "keyboard")
                                 .foregroundColor(ArtNouveauTheme.primary)
-                                .font(.title3)
+                                .font(.system(size: 20, weight: .semibold))
                         }
 
                         ZStack(alignment: .topLeading) {
                             // Placeholder text
                             if userInput.isEmpty {
                                 Text("Start typing the passage above...")
-                                    .font(.body)
+                                    .font(.system(.body, design: .default))
                                     .foregroundColor(ArtNouveauTheme.tertiaryLabel)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 20)
+                                    .padding(.horizontal, 18)
+                                    .padding(.vertical, 18)
                             }
 
                             TextEditor(text: $userInput)
-                                .font(.body)
-                                .padding(12)
-                                .frame(height: 120)
+                                .font(.system(.body, design: .default))
+                                .padding(14)
+                                .frame(height: 140)
                                 .scrollContentBackground(.hidden)
                                 .background(Color.clear)
                                 .onChange(of: userInput) { _ in
@@ -94,60 +106,112 @@ I am choosing to use my time wisely. These apps distract me from my goals and wa
                                 }
                         }
                         .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(ArtNouveauTheme.background)
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(ArtNouveauTheme.secondaryBackground)
                         )
                         .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(showError ? ArtNouveauTheme.error : (userInput.isEmpty ? ArtNouveauTheme.border : ArtNouveauTheme.primary), lineWidth: showError ? 2 : 1.5)
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(
+                                    showError 
+                                        ? ArtNouveauTheme.error 
+                                        : (userInput.isEmpty ? ArtNouveauTheme.border : ArtNouveauTheme.primary), 
+                                    lineWidth: showError ? 2.5 : 2
+                                )
                         )
-                        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+                        .shadow(
+                            color: showError 
+                                ? ArtNouveauTheme.error.opacity(0.2) 
+                                : (userInput.isEmpty ? Color.clear : ArtNouveauTheme.primary.opacity(0.15)),
+                            radius: showError ? 8 : 6,
+                            x: 0,
+                            y: 3
+                        )
 
-                        // Character count
+                        // Character count and status
                         HStack {
                             Text("\(userInput.count) / \(challengeText.count) characters")
-                                .font(.caption)
+                                .font(.system(.caption, design: .default).weight(.medium))
                                 .foregroundColor(ArtNouveauTheme.secondaryLabel)
 
                             Spacer()
 
                             if isCorrect {
-                                HStack(spacing: 4) {
+                                HStack(spacing: 6) {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundColor(ArtNouveauTheme.success)
+                                        .font(.system(size: 14, weight: .semibold))
                                     Text("Match!")
-                                        .font(.caption.weight(.semibold))
+                                        .font(.system(.caption, design: .default).weight(.bold))
                                         .foregroundColor(ArtNouveauTheme.success)
                                 }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(ArtNouveauTheme.successLight)
+                                .cornerRadius(8)
                             }
                         }
 
                         if showError {
-                            Text("Text doesn't match. Please type it exactly as shown above.")
-                                .font(.caption)
-                                .foregroundColor(ArtNouveauTheme.error)
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.circle.fill")
+                                    .foregroundColor(ArtNouveauTheme.error)
+                                    .font(.system(size: 14, weight: .semibold))
+                                Text("Text doesn't match. Please type it exactly as shown above.")
+                                    .font(.system(.caption, design: .default).weight(.medium))
+                                    .foregroundColor(ArtNouveauTheme.error)
+                            }
+                            .padding(12)
+                            .background(ArtNouveauTheme.errorLight)
+                            .cornerRadius(12)
                         }
                     }
-                    .padding(.horizontal, 32)
+                    .padding(.horizontal, 24)
 
                     // Submit button
                     Button {
                         attemptSubmit()
                     } label: {
-                        Text(isCorrect ? "Disable Blocking" : "Check Answer")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(isCorrect ? ArtNouveauTheme.success : ArtNouveauTheme.primary)
-                            .cornerRadius(12)
+                        HStack(spacing: 10) {
+                            if isCorrect {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 18, weight: .semibold))
+                            }
+                            Text(isCorrect ? "Disable Blocking" : "Check Answer")
+                                .font(.system(.headline, design: .default).weight(.bold))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                        .background(
+                            isCorrect 
+                                ? ArtNouveauTheme.successGradient 
+                                : ArtNouveauTheme.primaryGradient
+                        )
+                        .cornerRadius(16)
+                        .shadow(
+                            color: (isCorrect ? ArtNouveauTheme.success : ArtNouveauTheme.primary).opacity(0.4),
+                            radius: 12,
+                            x: 0,
+                            y: 6
+                        )
                     }
-                    .disabled(userInput.isEmpty)
-                    .opacity(userInput.isEmpty ? 0.5 : 1.0)
-                    .padding(.horizontal, 32)
+                    .disabled(userInput.isEmpty || !isCorrect)
+                    .opacity((userInput.isEmpty || !isCorrect) ? 0.6 : 1.0)
+                    .padding(.horizontal, 24)
                     .padding(.bottom, 32)
                 }
             }
+            .background(
+                LinearGradient(
+                    colors: [
+                        ArtNouveauTheme.background,
+                        ArtNouveauTheme.secondaryBackground.opacity(0.3)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
+            )
             .navigationTitle("Typing Challenge")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -155,6 +219,7 @@ I am choosing to use my time wisely. These apps distract me from my goals and wa
                     Button("Cancel") {
                         isPresented = false
                     }
+                    .foregroundColor(ArtNouveauTheme.primary)
                 }
             }
         }
