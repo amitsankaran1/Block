@@ -7,290 +7,181 @@
 
 import SwiftUI
 
+// Modern, sophisticated design system inspired by Cursor, Linear, Notion
 struct ArtNouveauTheme {
-    // Color Palette - Matching app icon's Art Nouveau style
-    // Deep forest greens, olive greens, teal greens
-    static let forestGreen = Color(red: 0.15, green: 0.35, blue: 0.25)
-    static let oliveGreen = Color(red: 0.25, green: 0.4, blue: 0.3)
-    static let tealGreen = Color(red: 0.2, green: 0.45, blue: 0.4)
-    static let deepGreen = Color(red: 0.18, green: 0.38, blue: 0.28) // Primary green
-    
-    // Muted creams/ivory for lines
-    static let cream = Color(red: 0.98, green: 0.96, blue: 0.92)
-    static let warmIvory = Color(red: 0.97, green: 0.95, blue: 0.91)
-    static let mutedCream = Color(red: 0.95, green: 0.93, blue: 0.89)
-    
-    // Soft blues for sky
-    static let softBlue = Color(red: 0.65, green: 0.78, blue: 0.88)
-    static let skyBlue = Color(red: 0.7, green: 0.8, blue: 0.9)
-    
-    // Earthy tones
-    static let mutedBrown = Color(red: 0.45, green: 0.4, blue: 0.35)
-    static let mutedPurple = Color(red: 0.4, green: 0.35, blue: 0.45)
-    
-    // Muted gold/yellow accents
-    static let mutedGold = Color(red: 0.88, green: 0.78, blue: 0.58)
-    static let softGold = Color(red: 0.92, green: 0.82, blue: 0.65)
-    
-    // Soft rose/pink accents
-    static let softRose = Color(red: 0.75, green: 0.55, blue: 0.6)
-    static let accentRose = Color(red: 0.72, green: 0.52, blue: 0.57)
-    
-    // Gradients matching the icon's palette
+    // Modern Color Palette - Rich and vibrant
+    static let primary = Color(red: 0.26, green: 0.40, blue: 0.98) // Vibrant blue
+    static let primaryDark = Color(red: 0.20, green: 0.32, blue: 0.88)
+    static let secondary = Color(red: 0.40, green: 0.47, blue: 0.95)
+    static let accent = Color(red: 0.55, green: 0.45, blue: 0.95) // Purple accent
+
+    // Status colors - More vibrant and distinct
+    static let success = Color(red: 0.20, green: 0.78, blue: 0.35) // Vibrant green
+    static let successLight = Color(red: 0.20, green: 0.78, blue: 0.35).opacity(0.15)
+    static let warning = Color(red: 1.0, green: 0.58, blue: 0.0) // Vibrant orange
+    static let warningLight = Color(red: 1.0, green: 0.58, blue: 0.0).opacity(0.15)
+    static let error = Color(red: 0.96, green: 0.26, blue: 0.21) // Vibrant red
+    static let errorLight = Color(red: 0.96, green: 0.26, blue: 0.21).opacity(0.15)
+
+    // Neutral colors with better contrast
+    static let background = Color(UIColor.systemBackground)
+    static let secondaryBackground = Color(UIColor.secondarySystemBackground)
+    static let tertiaryBackground = Color(UIColor.tertiarySystemBackground)
+    static let label = Color(UIColor.label)
+    static let secondaryLabel = Color(UIColor.secondaryLabel)
+    static let tertiaryLabel = Color(UIColor.tertiaryLabel)
+    static let border = Color(UIColor.separator).opacity(0.5)
+
+    // Legacy color aliases for compatibility
+    static let forestGreen = primary
+    static let oliveGreen = secondary
+    static let tealGreen = accent
+    static let deepGreen = primary
+    static let cream = tertiaryBackground
+    static let warmIvory = tertiaryBackground
+    static let mutedCream = secondaryBackground
+    static let softBlue = primary.opacity(0.3)
+    static let skyBlue = primary.opacity(0.2)
+    static let mutedBrown = Color.brown
+    static let mutedPurple = Color.purple
+    static let mutedGold = warning
+    static let softGold = warning.opacity(0.7)
+    static let softRose = Color.pink
+    static let accentRose = Color.pink.opacity(0.7)
+
+    // Modern gradients - Rich and dynamic
     static let primaryGradient = LinearGradient(
-        colors: [forestGreen, oliveGreen, tealGreen],
+        colors: [primary, primaryDark],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
     
+    static let successGradient = LinearGradient(
+        colors: [success, Color(red: 0.15, green: 0.70, blue: 0.30)],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+    
+    static let errorGradient = LinearGradient(
+        colors: [error, Color(red: 0.85, green: 0.20, blue: 0.15)],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
     static let goldGradient = LinearGradient(
-        colors: [mutedGold.opacity(0.9), softGold.opacity(0.6)],
+        colors: [warning, warning.opacity(0.8)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
-    
+
     static let accentGradient = LinearGradient(
-        colors: [mutedPurple, softRose],
+        colors: [accent, accent.opacity(0.8)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
-    
+
     static let skyGradient = LinearGradient(
-        colors: [skyBlue, softBlue],
+        colors: [primary.opacity(0.15), primary.opacity(0.05)],
         startPoint: .top,
         endPoint: .bottom
     )
     
-    // Typography
-    static let titleFont = Font.system(.title, design: .serif).weight(.medium)
-    static let headlineFont = Font.system(.headline, design: .serif).weight(.medium)
-    static let bodyFont = Font.system(.body, design: .serif)
+    // Glassmorphism background
+    static let glassBackground = Color(UIColor.systemBackground).opacity(0.7)
+
+    // Modern Typography - SF Pro with better weights
+    static let titleFont = Font.system(.title, design: .default).weight(.bold)
+    static let largeTitleFont = Font.system(.largeTitle, design: .default).weight(.bold)
+    static let headlineFont = Font.system(.headline, design: .default).weight(.semibold)
+    static let bodyFont = Font.system(.body, design: .default)
+    
+    // Shadow presets for depth
+    static let shadowSmall = Shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
+    static let shadowMedium = Shadow(color: Color.black.opacity(0.12), radius: 12, x: 0, y: 4)
+    static let shadowLarge = Shadow(color: Color.black.opacity(0.16), radius: 24, x: 0, y: 8)
+    
+    struct Shadow {
+        let color: Color
+        let radius: CGFloat
+        let x: CGFloat
+        let y: CGFloat
+    }
 }
 
-// Custom Art Nouveau Button Style
+// Modern Button Style - Clean and minimal
 struct ArtNouveauButtonStyle: ButtonStyle {
     var isProminent: Bool = true
-    
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(ArtNouveauTheme.headlineFont)
-            .foregroundColor(isProminent ? .white : ArtNouveauTheme.forestGreen)
-            .padding(.horizontal, 32)
-            .padding(.vertical, 16)
+            .font(.system(.body, design: .default).weight(.semibold))
+            .foregroundColor(isProminent ? .white : ArtNouveauTheme.primary)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 14)
             .background(
                 Group {
                     if isProminent {
-                        ArtNouveauTheme.primaryGradient
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(ArtNouveauTheme.primary)
                     } else {
-                        Color.clear
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.clear)
                     }
                 }
             )
             .overlay(
                 Group {
                     if !isProminent {
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(
-                                LinearGradient(
-                                    colors: [ArtNouveauTheme.cream.opacity(0.6), ArtNouveauTheme.oliveGreen.opacity(0.5)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 2
-                            )
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(ArtNouveauTheme.primary, lineWidth: 2)
                     }
                 }
             )
-            .clipShape(RoundedRectangle(cornerRadius: 20))
-            .shadow(color: ArtNouveauTheme.forestGreen.opacity(0.25), radius: configuration.isPressed ? 4 : 10, x: 0, y: configuration.isPressed ? 2 : 5)
-            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+            .opacity(configuration.isPressed ? 0.8 : 1.0)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
-// Decorative Border View
+// Minimal decorative elements - kept for compatibility
 struct ArtNouveauBorder: View {
     var body: some View {
-        GeometryReader { geometry in
-            Path { path in
-                let width = geometry.size.width
-                let height = geometry.size.height
-                
-                // Create flowing, organic border
-                path.move(to: CGPoint(x: 0, y: height * 0.1))
-                
-                // Curved top
-                path.addCurve(
-                    to: CGPoint(x: width * 0.3, y: 0),
-                    control1: CGPoint(x: width * 0.1, y: 0),
-                    control2: CGPoint(x: width * 0.2, y: 0)
-                )
-                
-                path.addCurve(
-                    to: CGPoint(x: width * 0.7, y: 0),
-                    control1: CGPoint(x: width * 0.5, y: 0),
-                    control2: CGPoint(x: width * 0.6, y: 0)
-                )
-                
-                path.addCurve(
-                    to: CGPoint(x: width, y: height * 0.1),
-                    control1: CGPoint(x: width * 0.8, y: 0),
-                    control2: CGPoint(x: width * 0.9, y: 0)
-                )
-                
-                // Right side
-                path.addLine(to: CGPoint(x: width, y: height * 0.9))
-                
-                // Curved bottom
-                path.addCurve(
-                    to: CGPoint(x: width * 0.7, y: height),
-                    control1: CGPoint(x: width * 0.9, y: height),
-                    control2: CGPoint(x: width * 0.8, y: height)
-                )
-                
-                path.addCurve(
-                    to: CGPoint(x: width * 0.3, y: height),
-                    control1: CGPoint(x: width * 0.6, y: height),
-                    control2: CGPoint(x: width * 0.5, y: height)
-                )
-                
-                path.addCurve(
-                    to: CGPoint(x: 0, y: height * 0.9),
-                    control1: CGPoint(x: width * 0.2, y: height),
-                    control2: CGPoint(x: width * 0.1, y: height)
-                )
-                
-                path.closeSubpath()
-            }
-            .stroke(ArtNouveauTheme.mutedGold, lineWidth: 2)
-        }
+        Rectangle()
+            .stroke(Color.clear, lineWidth: 0)
     }
 }
 
-// Decorative Ornament View - Floral motifs like the icon
 struct ArtNouveauOrnament: View {
     var size: CGFloat = 100
-    
+
     var body: some View {
-        ZStack {
-            // Stylized floral bud shape (like in the icon)
-            Path { path in
-                let center = size / 2
-                let budWidth = size * 0.15
-                
-                // Elongated floral bud
-                path.move(to: CGPoint(x: center, y: size * 0.1))
-                path.addCurve(
-                    to: CGPoint(x: center + budWidth, y: center),
-                    control1: CGPoint(x: center + budWidth * 0.3, y: size * 0.3),
-                    control2: CGPoint(x: center + budWidth * 0.7, y: size * 0.4)
-                )
-                path.addCurve(
-                    to: CGPoint(x: center, y: size * 0.9),
-                    control1: CGPoint(x: center + budWidth * 0.5, y: size * 0.6),
-                    control2: CGPoint(x: center + budWidth * 0.3, y: size * 0.75)
-                )
-                path.addCurve(
-                    to: CGPoint(x: center - budWidth, y: center),
-                    control1: CGPoint(x: center - budWidth * 0.3, y: size * 0.75),
-                    control2: CGPoint(x: center - budWidth * 0.5, y: size * 0.6)
-                )
-                path.addCurve(
-                    to: CGPoint(x: center, y: size * 0.1),
-                    control1: CGPoint(x: center - budWidth * 0.7, y: size * 0.4),
-                    control2: CGPoint(x: center - budWidth * 0.3, y: size * 0.3)
-                )
-            }
-            .stroke(ArtNouveauTheme.mutedGold.opacity(0.5), lineWidth: 1.5)
-            
-            // Flowing tendrils
-            Path { path in
-                let center = size / 2
-                path.move(to: CGPoint(x: center * 0.7, y: center * 0.6))
-                path.addCurve(
-                    to: CGPoint(x: center * 1.3, y: center * 1.4),
-                    control1: CGPoint(x: center * 0.9, y: center * 1.0),
-                    control2: CGPoint(x: center * 1.1, y: center * 1.2)
-                )
-            }
-            .stroke(ArtNouveauTheme.cream.opacity(0.4), lineWidth: 1)
-        }
-        .frame(width: size, height: size)
+        EmptyView()
     }
 }
 
-// Decorative Background Pattern - Matching icon's subtle style
+// Clean Background - No decorative patterns
 struct ArtNouveauBackground: View {
     var body: some View {
-        ZStack {
-            // Soft cream background like the icon
-            ArtNouveauTheme.warmIvory
-            
-            // Subtle decorative pattern with organic elements
-            GeometryReader { geometry in
-                // Floral motifs positioned organically
-                ForEach(0..<6, id: \.self) { i in
-                    ArtNouveauOrnament(size: 60)
-                        .opacity(0.06)
-                        .position(
-                            x: geometry.size.width * (0.15 + Double(i % 3) * 0.25),
-                            y: geometry.size.height * (0.2 + Double(i / 3) * 0.35)
-                        )
-                }
-                
-                // Subtle arch-like curves at top
-                Path { path in
-                    let width = geometry.size.width
-                    path.move(to: CGPoint(x: 0, y: geometry.size.height * 0.05))
-                    path.addCurve(
-                        to: CGPoint(x: width, y: geometry.size.height * 0.05),
-                        control1: CGPoint(x: width * 0.3, y: 0),
-                        control2: CGPoint(x: width * 0.7, y: 0)
-                    )
-                }
-                .stroke(ArtNouveauTheme.cream.opacity(0.15), lineWidth: 1)
-            }
-        }
+        ArtNouveauTheme.background
+            .ignoresSafeArea()
     }
 }
 
-// Custom Card Style - With organic arch-like borders
+// Modern Card Style - Clean with subtle shadow
 struct ArtNouveauCard<Content: View>: View {
     let content: Content
-    
+
     init(@ViewBuilder content: () -> Content) {
         self.content = content()
     }
-    
+
     var body: some View {
         content
             .padding(24)
             .background(
-                RoundedRectangle(cornerRadius: 28)
-                    .fill(ArtNouveauTheme.cream)
-                    .shadow(color: ArtNouveauTheme.forestGreen.opacity(0.15), radius: 16, x: 0, y: 6)
-            )
-            .overlay(
-                // Organic border with cream lines like the icon
-                RoundedRectangle(cornerRadius: 28)
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                ArtNouveauTheme.cream.opacity(0.8),
-                                ArtNouveauTheme.mutedGold.opacity(0.4),
-                                ArtNouveauTheme.oliveGreen.opacity(0.3)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 2
-                    )
-            )
-            .overlay(
-                // Subtle inner glow
-                RoundedRectangle(cornerRadius: 28)
-                    .stroke(ArtNouveauTheme.cream.opacity(0.3), lineWidth: 1)
-                    .padding(1)
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(ArtNouveauTheme.secondaryBackground)
+                    .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 4)
             )
     }
 }

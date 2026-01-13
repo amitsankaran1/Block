@@ -70,10 +70,14 @@ class NFCManager: NSObject, ObservableObject {
     func simulateTagScan(withId identifier: String) {
         print("🧪 Simulating tag scan: \(identifier)")
         lastScannedTag = identifier
+
+        // Check registration status BEFORE calling callback
+        let wasRegistered = configStore.registeredTagIdentifier != nil
+
         onTagScanned?(identifier)
 
-        if configStore.registeredTagIdentifier == nil {
-            print("📝 No tag registered - registering: \(identifier)")
+        if !wasRegistered {
+            print("📝 Tag registration completed")
         } else {
             handleBackgroundTag(identifier)
         }
@@ -158,15 +162,20 @@ extension NFCManager: NFCTagReaderSessionDelegate {
             }
 
             print("✅ Successfully read tag: \(tagId)")
-            session.alertMessage = "Tag detected!"
+            // Invalidate immediately without showing alert message for faster dismissal
             session.invalidate()
 
             Task { @MainActor in
                 self.lastScannedTag = tagId
+
+                // Check registration status BEFORE calling callback
+                // (callback might register the tag, changing the state)
+                let wasRegistered = self.configStore.registeredTagIdentifier != nil
+
                 self.onTagScanned?(tagId)
 
-                if self.configStore.registeredTagIdentifier == nil {
-                    print("📝 Registering new tag")
+                if !wasRegistered {
+                    print("📝 Tag registration completed")
                     self.stopScanning()
                 } else {
                     print("🔄 Handling tag for toggle")

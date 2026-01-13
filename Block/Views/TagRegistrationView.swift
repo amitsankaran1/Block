@@ -18,102 +18,92 @@ struct TagRegistrationView: View {
         NavigationView {
             ZStack {
                 ArtNouveauBackground()
-                    .ignoresSafeArea()
-                
-                VStack(spacing: 32) {
+
+                VStack(spacing: 40) {
                     if configStore.isTagRegistered {
-                        ArtNouveauCard {
-                            VStack(spacing: 24) {
-                                ZStack {
-                                    ArtNouveauOrnament(size: 120)
-                                        .opacity(0.15)
-                                    
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 64, weight: .medium))
-                                        .foregroundStyle(ArtNouveauTheme.primaryGradient)
-                                        .shadow(color: ArtNouveauTheme.forestGreen.opacity(0.25), radius: 10, x: 0, y: 5)
-                                }
-                                .frame(height: 100)
-                                
-                                VStack(spacing: 12) {
-                                    Text("Tag Registered")
-                                        .font(ArtNouveauTheme.titleFont)
-                                        .foregroundColor(ArtNouveauTheme.forestGreen)
-                                    
-                                    Text("Your NFC tag is registered and ready to use.")
-                                        .font(ArtNouveauTheme.bodyFont)
-                                        .foregroundColor(ArtNouveauTheme.oliveGreen.opacity(0.75))
-                                        .multilineTextAlignment(.center)
-                                }
-                                
-                                Button(role: .destructive) {
-                                    configStore.clearTagRegistration()
-                                } label: {
-                                    Text("Unregister Tag")
-                                }
-                                .buttonStyle(ArtNouveauButtonStyle(isProminent: false))
+                        VStack(spacing: 24) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 60, weight: .medium))
+                                .foregroundColor(ArtNouveauTheme.success)
+                                .symbolRenderingMode(.hierarchical)
+
+                            VStack(spacing: 8) {
+                                Text("Tag Registered")
+                                    .font(.title2.bold())
+
+                                Text("Your NFC tag is registered and ready to use.")
+                                    .font(.subheadline)
+                                    .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                                    .multilineTextAlignment(.center)
                             }
+
+                            Button(role: .destructive) {
+                                configStore.clearTagRegistration()
+                            } label: {
+                                Label("Unregister Tag", systemImage: "xmark.circle")
+                            }
+                            .buttonStyle(ArtNouveauButtonStyle(isProminent: false))
                         }
+                        .padding(32)
+                        .background(
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(ArtNouveauTheme.secondaryBackground)
+                        )
                         .padding(.horizontal, 32)
                     } else {
-                        ArtNouveauCard {
-                            VStack(spacing: 32) {
-                                ZStack {
-                                    ArtNouveauOrnament(size: 120)
-                                        .opacity(0.15)
-                                    
-                                    Image(systemName: "sensor.tag.radiowaves.forward.fill")
-                                        .font(.system(size: 64, weight: .medium))
-                                        .foregroundStyle(ArtNouveauTheme.primaryGradient)
-                                        .shadow(color: ArtNouveauTheme.forestGreen.opacity(0.25), radius: 10, x: 0, y: 5)
-                                }
-                                .frame(height: 100)
-                                
+                        VStack(spacing: 32) {
+                            Image(systemName: "sensor.tag.radiowaves.forward.fill")
+                                .font(.system(size: 60, weight: .medium))
+                                .foregroundColor(ArtNouveauTheme.primary)
+                                .symbolRenderingMode(.hierarchical)
+
+                            VStack(spacing: 12) {
+                                Text("Register NFC Tag")
+                                    .font(.title2.bold())
+
+                                Text("Hold your iPhone near an NFC tag to register it. Once registered, scanning this tag will toggle app blocking.")
+                                    .font(.subheadline)
+                                    .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                                    .multilineTextAlignment(.center)
+                            }
+
+                            if nfcManager.isScanning {
                                 VStack(spacing: 16) {
-                                    Text("Register NFC Tag")
-                                        .font(ArtNouveauTheme.titleFont)
-                                        .foregroundColor(ArtNouveauTheme.forestGreen)
-                                    
-                                    Text("Hold your iPhone near an NFC tag to register it. Once registered, scanning this tag will toggle app blocking.")
-                                        .font(ArtNouveauTheme.bodyFont)
-                                        .foregroundColor(ArtNouveauTheme.oliveGreen.opacity(0.75))
-                                        .multilineTextAlignment(.center)
-                                }
-                                
-                                if nfcManager.isScanning {
-                                    VStack(spacing: 20) {
-                                        ProgressView()
-                                            .tint(ArtNouveauTheme.forestGreen)
-                                            .scaleEffect(1.5)
-                                        
-                                        Text("Scanning for NFC tag...")
-                                            .font(ArtNouveauTheme.bodyFont)
-                                            .foregroundColor(ArtNouveauTheme.oliveGreen.opacity(0.75))
-                                        
-                                        Button("Cancel") {
-                                            nfcManager.stopScanning()
-                                        }
-                                        .buttonStyle(ArtNouveauButtonStyle(isProminent: false))
+                                    ProgressView()
+                                        .controlSize(.large)
+
+                                    Text("Scanning for NFC tag...")
+                                        .font(.subheadline)
+                                        .foregroundColor(ArtNouveauTheme.secondaryLabel)
+
+                                    Button("Cancel") {
+                                        nfcManager.stopScanning()
                                     }
-                                } else {
-                                    Button {
-                                        startRegistration()
-                                    } label: {
-                                        Label("Start Scanning", systemImage: "sensor.tag.radiowaves.forward")
-                                            .frame(maxWidth: .infinity)
-                                    }
-                                    .buttonStyle(ArtNouveauButtonStyle(isProminent: true))
+                                    .buttonStyle(ArtNouveauButtonStyle(isProminent: false))
                                 }
-                                
-                                if let error = nfcManager.errorMessage {
-                                    Text(error)
-                                        .font(ArtNouveauTheme.bodyFont)
-                                        .foregroundColor(ArtNouveauTheme.accentRose)
-                                        .multilineTextAlignment(.center)
-                                        .padding(.top, 8)
+                            } else {
+                                Button {
+                                    startRegistration()
+                                } label: {
+                                    Label("Start Scanning", systemImage: "sensor.tag.radiowaves.forward")
+                                        .frame(maxWidth: .infinity)
                                 }
+                                .buttonStyle(ArtNouveauButtonStyle(isProminent: true))
+                            }
+
+                            if let error = nfcManager.errorMessage {
+                                Text(error)
+                                    .font(.caption)
+                                    .foregroundColor(ArtNouveauTheme.error)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.top, 8)
                             }
                         }
+                        .padding(32)
+                        .background(
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(ArtNouveauTheme.secondaryBackground)
+                        )
                         .padding(.horizontal, 32)
                     }
                 }
@@ -126,8 +116,6 @@ struct TagRegistrationView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .foregroundColor(ArtNouveauTheme.forestGreen)
-                    .font(ArtNouveauTheme.bodyFont)
                 }
             }
         }
