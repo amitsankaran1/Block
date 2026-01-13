@@ -108,9 +108,10 @@ struct ArtNouveauTheme {
     }
 }
 
-// Modern Button Style - Clean and minimal
+// Modern Button Style - Rich with depth and gradients
 struct ArtNouveauButtonStyle: ButtonStyle {
     var isProminent: Bool = true
+    var gradient: LinearGradient? = nil
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -121,10 +122,11 @@ struct ArtNouveauButtonStyle: ButtonStyle {
             .background(
                 Group {
                     if isProminent {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(ArtNouveauTheme.primary)
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(gradient ?? ArtNouveauTheme.primaryGradient)
+                            .shadow(color: ArtNouveauTheme.primary.opacity(0.3), radius: 8, x: 0, y: 4)
                     } else {
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: 14)
                             .fill(Color.clear)
                     }
                 }
@@ -132,14 +134,14 @@ struct ArtNouveauButtonStyle: ButtonStyle {
             .overlay(
                 Group {
                     if !isProminent {
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: 14)
                             .stroke(ArtNouveauTheme.primary, lineWidth: 2)
                     }
                 }
             )
-            .opacity(configuration.isPressed ? 0.8 : 1.0)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+            .opacity(configuration.isPressed ? 0.85 : 1.0)
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
     }
 }
 
