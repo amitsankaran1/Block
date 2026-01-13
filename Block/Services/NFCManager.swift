@@ -65,7 +65,9 @@ class NFCManager: NSObject, ObservableObject {
 
         onTagScanned?(identifier)
 
-        if wasRegistered {
+        if !wasRegistered {
+            // Tag was just registered
+        } else {
             handleBackgroundTag(identifier)
         }
     }
@@ -100,7 +102,7 @@ extension NFCManager: NFCTagReaderSessionDelegate {
         }
 
         session.connect(to: tag) { error in
-            if error != nil {
+            if let error = error {
                 session.invalidate(errorMessage: "Connection failed. Please try again.")
                 return
             }
@@ -136,6 +138,10 @@ extension NFCManager: NFCTagReaderSessionDelegate {
 
             Task { @MainActor in
                 self.lastScannedTag = tagId
+
+                // Check registration status BEFORE calling callback
+                // (callback might register the tag, changing the state)
+                let wasRegistered = self.configStore.registeredTagIdentifier != nil
 
                 // Call the callback - ContentView will handle toggling if tag is registered
                 self.onTagScanned?(tagId)
