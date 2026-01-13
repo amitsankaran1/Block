@@ -262,9 +262,12 @@ struct ContentView: View {
 
     private func setupNFCHandler() {
         // Set up handler to register or toggle based on state
-        nfcManager.onTagScanned = { [weak configStore, weak screenTimeManager] tagId in
-            guard let configStore = configStore,
-                  let screenTimeManager = screenTimeManager else { return }
+        nfcManager.onTagScanned = { tagId in
+            // Use singletons directly to ensure they're always available
+            let configStore = AppConfigurationStore.shared
+            let screenTimeManager = ScreenTimeManager.shared
+            
+            print("🔵 ContentView: Tag scanned callback called with tagId: \(tagId)")
 
             if let registeredTag = configStore.registeredTagIdentifier {
                 // Tag already registered - toggle blocking

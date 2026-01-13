@@ -133,7 +133,7 @@ struct SettingsView: View {
                                         do {
                                             try await screenTimeManager.requestAuthorization()
                                         } catch {
-                                            print("Authorization error: \(error)")
+                                            // Authorization error handled silently
                                         }
                                     }
                                 } label: {

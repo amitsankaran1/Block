@@ -38,7 +38,6 @@ class ScreenTimeManager: ObservableObject {
     
     func enableBlocking(for apps: Set<ApplicationToken>) {
         guard authorizationStatus == .approved else {
-            print("Authorization not granted")
             return
         }
         
