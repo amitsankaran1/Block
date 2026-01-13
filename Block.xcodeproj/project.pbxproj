@@ -286,7 +286,6 @@
 				INFOPLIST_FILE = Block/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Tyri;
 				INFOPLIST_KEY_NFCReaderUsageDescription = "This app needs NFC access to read tags that toggle app blocking.";
-				INFOPLIST_KEY_NSUserActivityTypes = com.apple.developer.nfc.readersession.formats.NDEF;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -323,7 +322,6 @@
 				INFOPLIST_FILE = Block/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Tyri;
 				INFOPLIST_KEY_NFCReaderUsageDescription = "This app needs NFC access to read tags that toggle app blocking.";
-				INFOPLIST_KEY_NSUserActivityTypes = com.apple.developer.nfc.readersession.formats.NDEF;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
