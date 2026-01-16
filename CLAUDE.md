@@ -2,81 +2,116 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## Quick Start
 
-**Block** is an iOS app that uses NFC tags to toggle app blocking on/off via iOS Screen Time APIs. Users register an NFC tag, select apps to block, then scan the tag to instantly enable or disable blocking for those apps.
+**Block** is an iOS app that uses NFC tags as physical switches to toggle app blocking via iOS Screen Time APIs.
+
+**Prerequisites**: Xcode (full version, not just Command Line Tools), iPhone with NFC (iPhone 7+), iOS 15+
+
+**Essential workflow**:
+1. Open `Block.xcodeproj` in Xcode
+2. Build (Cmd+B) and Run (Cmd+R) on physical iPhone (NFC doesn't work on simulator)
+3. For development without NFC hardware: Use `NFCManager.shared.simulateTagScan(withId: "test123")` in code
+
+**Key files**: `BlockApp.swift` (entry point), three manager singletons in `Services/`, views in `Views/`, and Art Nouveau theme in `Views/ArtNouveauTheme.swift`
+
+---
 
 ## Build & Development Commands
 
-This is an Xcode-based iOS project. **Note:** Full Xcode is required (not just Command Line Tools).
+This is an Xcode-based iOS project. **Full Xcode is required** (not just Command Line Tools).
 
 - **Build**: Open `Block.xcodeproj` in Xcode and use Cmd+B
-- **Run**: Open in Xcode and use Cmd+R (requires iPhone with NFC - iPhone 7+)
-- **Clean**: In Xcode, Product → Clean Build Folder
+- **Run on Device**: Cmd+R (requires physical iPhone with NFC - iPhone 7+)
+- **Run on Simulator**: Works for UI testing only - NFC functionality requires physical device
+- **Clean**: Product → Clean Build Folder in Xcode
+- **Test NFC without hardware**: Call `NFCManager.shared.simulateTagScan(withId: "identifier")` in code
 
-The project has no tests currently and no external dependencies (uses only iOS system frameworks).
+The project has no external dependencies (uses only iOS system frameworks) and no automated tests currently.
+
+---
 
 ## Architecture Overview
 
-### Core Components
+### Core Pattern: Callback-Based Singleton Architecture
 
-The app follows a singleton-based architecture with three main managers:
+The app uses three singleton managers with a **callback coordination pattern** rather than direct coupling:
 
 1. **AppConfigurationStore** (`Services/AppConfigurationStore.swift`)
-   - Singleton shared instance managing app state
+   - Singleton managing persistent app state
    - Properties: `selectedApps`, `registeredTagIdentifier`, `isBlockingEnabled`
-   - Persists state to UserDefaults
-   - Observable: View updates happen automatically via `@Published` properties
+   - Persists to UserDefaults
+   - Observable: Views react automatically via `@Published` properties
 
 2. **ScreenTimeManager** (`Services/ScreenTimeManager.swift`)
-   - `@MainActor` singleton handling all Screen Time API interactions
+   - `@MainActor` singleton for Screen Time API interactions
    - Manages `ManagedSettingsStore` for app blocking
    - Methods: `requestAuthorization()`, `enableBlocking()`, `disableBlocking()`, `toggleBlocking()`
-   - Key insight: Setting `store.shield.applications` blocks apps with iOS's default shield screen
+   - **Key insight**: Setting `store.shield.applications` blocks apps with iOS's shield screen
 
 3. **NFCManager** (`Services/NFCManager.swift`)
-   - Singleton handling NFC tag reading via `NFCTagReaderSession`
-   - Supports all major tag types: ISO7816, FeliCa, ISO15693, MiFare
-   - Tag identifiers are hex strings extracted from tag hardware IDs
-   - Has `onTagScanned` callback for coordination with UI
+   - `@MainActor` singleton for NFC tag reading via `NFCTagReaderSession`
+   - Supports ISO7816, FeliCa, ISO15693, MiFare tag types
+   - Tag identifiers are hex strings from hardware IDs
+   - **Important**: Uses `onTagScanned` callback for loose coupling with ContentView
+   - **Testing**: `simulateTagScan(withId:)` method for development without NFC hardware
+
+### Callback Coordination Pattern
+
+The NFCManager doesn't directly call ScreenTimeManager. Instead:
+1. ContentView sets `nfcManager.onTagScanned` callback in `setupNFCHandler()`
+2. When tag scanned: NFCManager invokes callback with tag ID
+3. Callback in ContentView coordinates between AppConfigurationStore and ScreenTimeManager
+4. This pattern keeps managers decoupled and testable
 
 ### View Architecture
 
-- **ContentView**: Main screen with status display and scan button
+- **ContentView**: Main screen with status display and scan button; sets up NFC callback
 - **SettingsView**: Screen Time authorization + app selection (uses `FamilyActivityPicker`)
 - **TagRegistrationView**: NFC tag registration flow
+- **TypingChallengeView**: Emergency override requiring exact typing of motivational passage
 - **ArtNouveauTheme**: Design system with Art Nouveau styling (organic curves, gradient colors)
 
 ### Data Flow
 
 1. User scans NFC tag → `NFCManager` reads hardware ID
-2. If no tag registered: Store tag ID in `AppConfigurationStore`
-3. If tag matches registered: Toggle blocking via `ScreenTimeManager`
-4. `ScreenTimeManager.toggleBlocking()` → Updates `ManagedSettingsStore.shield.applications`
-5. iOS enforces blocking automatically with shield screen
+2. NFCManager invokes `onTagScanned` callback with tag ID
+3. ContentView callback checks if tag is registered:
+   - If not registered: Store tag ID in `AppConfigurationStore`
+   - If matches registered tag: Call `ScreenTimeManager.toggleBlocking()`
+4. ScreenTimeManager updates `ManagedSettingsStore.shield.applications`
+5. iOS enforces blocking with shield screen
 
 ### Key Technical Details
 
-- **ApplicationToken**: System-managed type from Family Controls framework. Cannot be directly serialized - selection persists via system, not UserDefaults
+- **ApplicationToken**: System-managed type from Family Controls. Cannot be serialized - selection persists via system, not UserDefaults
 - **Background NFC**: App can detect tag scans when backgrounded (requires proper entitlements)
-- **@MainActor**: Both `ScreenTimeManager` and `NFCManager` are MainActor-isolated for thread safety
-- **Singleton pattern**: All managers use `shared` singleton instances, injected as `@StateObject` in views
+- **@MainActor**: Both ScreenTimeManager and NFCManager are MainActor-isolated for thread safety
+- **Singleton injection**: All managers use `shared` singleton instances, injected as `@StateObject` in views
+- **Tag identifier format**: Hex strings from tag hardware, e.g., "04a3b2c1d0e3f1"
+
+---
 
 ## iOS Requirements & Capabilities
 
 - **Minimum iOS**: 15.0 (required for Family Controls)
 - **Device**: iPhone with NFC (iPhone 7+)
-- **Required Capabilities** (configured in Xcode project):
+- **Xcode project capabilities** (configured in project settings):
   - NFC Tag Reading
   - Family Controls (requires special entitlement)
   - Background Modes: NFC Tag Reading
 
+---
+
 ## Working with Screen Time APIs
 
-- Authorization is required via `AuthorizationCenter.shared.requestAuthorization(for: .individual)`
+- Authorization required via `AuthorizationCenter.shared.requestAuthorization(for: .individual)`
 - Must check `authorizationStatus == .approved` before blocking
 - `ManagedSettingsStore.clearAllSettings()` disables all blocking
 - Custom shield screens require separate app extension (not implemented)
+- App selection uses native `FamilyActivityPicker` - cannot customize this UI
+
+---
 
 ## Working with NFC
 
@@ -84,41 +119,71 @@ The app follows a singleton-based architecture with three main managers:
 - Tag identifiers are hardware-based and unique per physical tag
 - Session invalidation patterns:
   - User cancellation: Silent (no error shown)
-  - Timeout: Show user error message
+  - Timeout: Show error message
   - Connection failure: Show error message
 - Delegate methods are `nonisolated` - use `Task { @MainActor in ... }` for UI updates
+- **Development tip**: Use `simulateTagScan(withId:)` for testing without physical tags
+
+---
 
 ## Art Nouveau Design System
 
-The app uses an Art Nouveau theme (`Views/ArtNouveauTheme.swift`):
-- Colors: Forest green, olive green, teal, gold accents
-- Fonts: Georgia (serif) with specific size scales
-- Components: `ArtNouveauCard`, `ArtNouveauOrnament`, `ArtNouveauButtonStyle`
-- Visual style: Organic curves, decorative elements, gradient overlays
+The app uses a custom Art Nouveau theme (`Views/ArtNouveauTheme.swift`):
+- **Colors**: Forest green, olive green, teal, gold accents, with semantic colors (error, success, warning)
+- **Gradients**: Primary, success, error, and gold gradients for visual interest
+- **Fonts**: System fonts with specific weight scales (avoiding Georgia due to SwiftUI limitations)
+- **Components**: `ArtNouveauCard`, `ArtNouveauOrnament`, `ArtNouveauButtonStyle`
+- **Visual style**: Organic curves, decorative elements, gradient overlays, shadows for depth
 
-When adding UI elements, use the theme's predefined colors, fonts, and components for consistency.
+When adding UI elements, use the theme's predefined colors, gradients, and components for consistency.
+
+---
 
 ## Emergency Override System
 
-The app includes a typing challenge override for emergency situations when the NFC tag is unavailable:
+The app includes a typing challenge for emergency access when NFC tag is unavailable:
 
-- **TypingChallengeView** (`Views/TypingChallengeView.swift`): Modal that requires users to type a motivational passage exactly to disable blocking
-- Accessible via Settings menu in "Emergency Access" section (only appears when blocking is active)
+- **TypingChallengeView** (`Views/TypingChallengeView.swift`): Requires users to type a motivational passage exactly to disable blocking
+- Accessible via Settings → "Emergency Access" (only visible when blocking is active)
 - Provides friction to discourage casual bypass while ensuring access is always possible
-- Normalizes input (case-insensitive, ignores extra whitespace) for reasonable error tolerance
+- Input normalization: Case-insensitive, ignores extra whitespace for reasonable tolerance
+- Passage emphasizes intentional choice and goal alignment
 
-## Selected Apps Display
+---
+
+## Selected Apps Display Limitation
 
 - Due to iOS privacy restrictions, `ApplicationToken` doesn't expose app names or icons programmatically
-- The `FamilyActivityPicker` shows app details in its native UI, but this info cannot be extracted
-- Settings shows count of selected apps (e.g., "3 Apps Selected") instead of individual app names
-- Users must use the FamilyActivityPicker UI to see which specific apps are selected
+- `FamilyActivityPicker` shows app details in its native UI, but this info cannot be extracted
+- Settings displays count (e.g., "3 Apps Selected") instead of individual app names
+- Users must use the FamilyActivityPicker to see which specific apps are selected
+- This is an iOS platform limitation, not a bug
+
+---
+
+## Development Workflow
+
+**Commit style** (based on git history):
+- Use descriptive, action-oriented commit messages
+- Start with verb in present tense: "Refactor", "Enhance", "Fix", "Add"
+- Be specific about what changed and why
+- Example: "Refactor NFCManager to improve tag registration handling and error checking"
+
+**Common tasks**:
+- Testing NFC logic: Use `simulateTagScan` method in ContentView or directly on NFCManager
+- Modifying blocking behavior: Change ScreenTimeManager methods
+- UI changes: Follow Art Nouveau theme patterns
+- Adding new override mechanisms: See Roadmap.md for evaluated options
+
+---
 
 ## Roadmap Context
 
-See `Roadmap.md` for additional planned features including:
-- Time-of-day automatic locks
-- Cooldown timers
-- Motion-based unlock requirements (step count)
+See `Roadmap.md` for comprehensive analysis of potential features including:
+- Time-of-day automatic locks (Tier 1 - highest priority)
+- Typing challenges (already implemented)
+- Cooldown timers (Tier 1)
+- Motion-based unlock requirements (Tier 2)
+- Each feature ranked by effectiveness, feasibility, and complexity
 
 These features would extend the existing toggle mechanism with additional friction or automation.
