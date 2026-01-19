@@ -25,6 +25,32 @@ class NFCManager: NSObject, ObservableObject {
 
     override private init() {
         super.init()
+        setupDefaultCallback()
+    }
+
+    func setupDefaultCallback() {
+        onTagScanned = { tagId in
+            let configStore = AppConfigurationStore.shared
+            let screenTimeManager = ScreenTimeManager.shared
+
+            print("🔵 NFCManager: Tag scanned callback called with tagId: \(tagId)")
+
+            if let registeredTag = configStore.registeredTagIdentifier {
+                // Tag already registered - toggle blocking
+                if tagId == registeredTag {
+                    print("✅ Matched registered tag - toggling blocking")
+                    screenTimeManager.toggleBlocking(for: configStore.selectedApps)
+                } else {
+                    print("❌ Scanned tag doesn't match registered tag")
+                    print("   Scanned: \(tagId)")
+                    print("   Registered: \(registeredTag)")
+                }
+            } else {
+                // No tag registered - register this tag
+                print("📝 No tag registered - registering tag: \(tagId)")
+                configStore.registerTag(identifier: tagId)
+            }
+        }
     }
 
     func startScanning() {

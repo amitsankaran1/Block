@@ -12,8 +12,6 @@ struct TagRegistrationView: View {
     @StateObject private var configStore = AppConfigurationStore.shared
     @Environment(\.dismiss) private var dismiss
     
-    @State private var isRegistering = false
-    
     var body: some View {
         NavigationView {
             ZStack {
@@ -170,21 +168,8 @@ struct TagRegistrationView: View {
                 }
             }
         }
-        .onAppear {
-            setupTagScanHandler()
-        }
         .onDisappear {
             nfcManager.stopScanning()
-        }
-    }
-    
-    private func setupTagScanHandler() {
-        nfcManager.onTagScanned = { identifier in
-            if !configStore.isTagRegistered && !isRegistering {
-                isRegistering = true
-                configStore.registerTag(identifier: identifier)
-                isRegistering = false
-            }
         }
     }
     

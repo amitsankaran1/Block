@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var showPicker = false
     @State private var selectedTokenSet = FamilyActivitySelection()
     @State private var showTypingChallenge = false
+    @State private var isRequestingAuthorization = false
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -130,20 +131,29 @@ struct SettingsView: View {
                                 // Action button
                                 Button {
                                     Task {
+                                        isRequestingAuthorization = true
                                         do {
                                             try await screenTimeManager.requestAuthorization()
                                         } catch {
                                             // Authorization error handled silently
                                         }
+                                        isRequestingAuthorization = false
                                     }
                                 } label: {
                                     HStack(spacing: 10) {
-                                        Image(systemName: "lock.open")
-                                        Text("Request Authorization")
+                                        if isRequestingAuthorization {
+                                            ProgressView()
+                                                .controlSize(.small)
+                                                .tint(.white)
+                                        } else {
+                                            Image(systemName: "lock.open")
+                                        }
+                                        Text(isRequestingAuthorization ? "Requesting..." : "Request Authorization")
                                     }
                                     .frame(maxWidth: .infinity)
                                 }
                                 .buttonStyle(ArtNouveauButtonStyle(isProminent: true))
+                                .disabled(isRequestingAuthorization)
                             } else {
                                 // Status display
                                 HStack(spacing: 16) {

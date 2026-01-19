@@ -255,37 +255,10 @@ struct ContentView: View {
             }
             .onAppear {
                 screenTimeManager.checkAuthorizationStatus()
-                setupNFCHandler()
             }
         }
     }
 
-    private func setupNFCHandler() {
-        // Set up handler to register or toggle based on state
-        nfcManager.onTagScanned = { tagId in
-            // Use singletons directly to ensure they're always available
-            let configStore = AppConfigurationStore.shared
-            let screenTimeManager = ScreenTimeManager.shared
-            
-            print("🔵 ContentView: Tag scanned callback called with tagId: \(tagId)")
-
-            if let registeredTag = configStore.registeredTagIdentifier {
-                // Tag already registered - toggle blocking
-                if tagId == registeredTag {
-                    print("✅ Matched registered tag - toggling blocking")
-                    screenTimeManager.toggleBlocking(for: configStore.selectedApps)
-                } else {
-                    print("❌ Scanned tag doesn't match registered tag")
-                    print("   Scanned: \(tagId)")
-                    print("   Registered: \(registeredTag)")
-                }
-            } else {
-                // No tag registered - register this tag
-                print("📝 No tag registered - registering tag: \(tagId)")
-                configStore.registerTag(identifier: tagId)
-            }
-        }
-    }
 }
 
 // Button style that scales down on press to feel more tactile
