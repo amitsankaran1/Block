@@ -12,7 +12,6 @@ struct SettingsView: View {
     @StateObject private var configStore = AppConfigurationStore.shared
     @StateObject private var screenTimeManager = ScreenTimeManager.shared
     @State private var showPicker = false
-    @State private var selectedTokenSet = FamilyActivitySelection()
     @State private var showTypingChallenge = false
     @State private var isRequestingAuthorization = false
     @Environment(\.dismiss) private var dismiss
@@ -160,28 +159,38 @@ struct SettingsView: View {
                                     ZStack {
                                         Circle()
                                             .fill(
-                                                configStore.selectedApps.isEmpty 
-                                                    ? ArtNouveauTheme.warningLight 
-                                                    : ArtNouveauTheme.successLight
+                                                configStore.hasSelectedApps
+                                                    ? ArtNouveauTheme.successLight
+                                                    : ArtNouveauTheme.warningLight
                                             )
                                             .frame(width: 56, height: 56)
-                                        
-                                        Image(systemName: configStore.selectedApps.isEmpty ? "app.badge" : "checkmark.circle.fill")
-                                            .foregroundColor(configStore.selectedApps.isEmpty ? ArtNouveauTheme.warning : ArtNouveauTheme.success)
+
+                                        Image(systemName: configStore.hasSelectedApps ? "checkmark.circle.fill" : "app.badge")
+                                            .foregroundColor(configStore.hasSelectedApps ? ArtNouveauTheme.success : ArtNouveauTheme.warning)
                                             .font(.system(size: 28, weight: .semibold))
                                             .symbolRenderingMode(.hierarchical)
                                     }
-                                    
+
                                     VStack(alignment: .leading, spacing: 6) {
-                                        Text(configStore.selectedApps.isEmpty ? "No Apps Selected" : "\(configStore.selectedApps.count) App\(configStore.selectedApps.count == 1 ? "" : "s") Selected")
+                                        Text(configStore.hasSelectedApps ? "Apps Selected" : "No Apps Selected")
                                             .font(.system(.headline, design: .default).weight(.bold))
                                             .foregroundColor(ArtNouveauTheme.label)
 
-                                        Text("Select the apps you want to block when you tap your tag.")
-                                            .font(.system(.subheadline, design: .default))
-                                            .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                                        if configStore.hasSelectedApps && configStore.selectedApps.applicationTokens.isEmpty {
+                                            Text("Tap the button below to confirm your app selection.")
+                                                .font(.system(.subheadline, design: .default))
+                                                .foregroundColor(ArtNouveauTheme.warning)
+                                        } else if configStore.hasSelectedApps {
+                                            Text("\(configStore.selectedApps.applicationTokens.count) app\(configStore.selectedApps.applicationTokens.count == 1 ? "" : "s") ready to block.")
+                                                .font(.system(.subheadline, design: .default))
+                                                .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                                        } else {
+                                            Text("Select the apps you want to block when you tap your tag.")
+                                                .font(.system(.subheadline, design: .default))
+                                                .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                                        }
                                     }
-                                    
+
                                     Spacer()
                                 }
 
@@ -216,15 +225,21 @@ struct SettingsView: View {
                                     } label: {
                                         HStack(spacing: 10) {
                                             Image(systemName: "square.grid.2x2")
-                                            Text(configStore.selectedApps.isEmpty ? "Select Apps to Block" : "Edit App Selection")
+                                            if configStore.hasSelectedApps && configStore.selectedApps.applicationTokens.isEmpty {
+                                                Text("Confirm App Selection")
+                                            } else if configStore.hasSelectedApps {
+                                                Text("Edit App Selection")
+                                            } else {
+                                                Text("Select Apps to Block")
+                                            }
                                         }
                                         .frame(maxWidth: .infinity)
                                     }
                                     .buttonStyle(ArtNouveauButtonStyle(isProminent: true))
 
-                                    if !configStore.selectedApps.isEmpty {
+                                    if configStore.hasSelectedApps {
                                         Button {
-                                            configStore.selectedApps.removeAll()
+                                            configStore.clearSelectedApps()
                                             screenTimeManager.disableBlocking()
                                         } label: {
                                             HStack(spacing: 10) {
@@ -329,14 +344,11 @@ struct SettingsView: View {
                 }
             }
         }
-        .familyActivityPicker(isPresented: $showPicker, selection: $selectedTokenSet)
-        .onChange(of: selectedTokenSet) { newValue in
-            // Update selected apps when picker selection changes
-            configStore.selectedApps = Set(newValue.applicationTokens)
-
+        .familyActivityPicker(isPresented: $showPicker, selection: $configStore.selectedApps)
+        .onChange(of: configStore.selectedApps) { newValue in
             // Update blocking if currently enabled
             if configStore.isBlockingEnabled {
-                screenTimeManager.updateBlocking(for: configStore.selectedApps)
+                screenTimeManager.updateBlocking(for: newValue)
             }
         }
         .sheet(isPresented: $showTypingChallenge) {
