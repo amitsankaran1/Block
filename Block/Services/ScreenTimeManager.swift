@@ -13,57 +13,96 @@ import Combine
 @MainActor
 class ScreenTimeManager: ObservableObject {
     static let shared = ScreenTimeManager()
-    
+
     @Published var authorizationStatus: AuthorizationStatus = .notDetermined
-    
+
     private let store = ManagedSettingsStore()
     private let configStore = AppConfigurationStore.shared
-    
+
     private init() {
+        // Check authorization status multiple times to ensure we catch it when iOS is ready
         checkAuthorizationStatus()
+
+        // Delay restoration to ensure AppConfigurationStore has finished loading
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+            checkAuthorizationStatus()
+            restoreBlockingIfNeeded()
+
+            // Check again after a longer delay in case iOS needs more time
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 second
+            checkAuthorizationStatus()
+        }
+    }
+
+    func restoreBlockingIfNeeded() {
+        // If blocking was enabled when app was closed, reapply it on startup
+        guard authorizationStatus == .approved else {
+            print("⚠️ Cannot restore blocking: authorization not approved")
+            return
+        }
+
+        if configStore.isBlockingEnabled && !configStore.selectedApps.applicationTokens.isEmpty {
+            print("✅ Restoring blocking for \(configStore.selectedApps.applicationTokens.count) apps")
+            store.shield.applications = configStore.selectedApps.applicationTokens
+        } else {
+            print("ℹ️ No blocking to restore (enabled: \(configStore.isBlockingEnabled), apps: \(configStore.selectedApps.applicationTokens.count))")
+        }
     }
     
     func checkAuthorizationStatus() {
-        authorizationStatus = AuthorizationCenter.shared.authorizationStatus
+        let previousStatus = authorizationStatus
+        let status = AuthorizationCenter.shared.authorizationStatus
+        print("🔐 Authorization status: \(status)")
+        authorizationStatus = status
+
+        // If authorization just became approved and we have saved apps, restore blocking if needed
+        if previousStatus != .approved && status == .approved {
+            print("✅ Authorization just approved - checking if we need to restore")
+            restoreBlockingIfNeeded()
+        }
     }
-    
+
     func requestAuthorization() async throws {
         do {
             try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
             checkAuthorizationStatus()
+
+            // After authorization, ensure blocking is restored if it was previously enabled
+            restoreBlockingIfNeeded()
         } catch {
             throw error
         }
     }
     
-    func enableBlocking(for apps: Set<ApplicationToken>) {
+    func enableBlocking(for selection: FamilyActivitySelection) {
         guard authorizationStatus == .approved else {
             return
         }
-        
+
         // Apply blocking - setting applications will show default shield
         // Custom shield configuration requires a separate app extension
-        store.shield.applications = apps
-        
+        store.shield.applications = selection.applicationTokens
+
         configStore.setBlockingEnabled(true)
     }
-    
+
     func disableBlocking() {
         store.clearAllSettings()
         configStore.setBlockingEnabled(false)
     }
-    
-    func toggleBlocking(for apps: Set<ApplicationToken>) {
+
+    func toggleBlocking(for selection: FamilyActivitySelection) {
         if configStore.isBlockingEnabled {
             disableBlocking()
         } else {
-            enableBlocking(for: apps)
+            enableBlocking(for: selection)
         }
     }
-    
-    func updateBlocking(for apps: Set<ApplicationToken>) {
+
+    func updateBlocking(for selection: FamilyActivitySelection) {
         if configStore.isBlockingEnabled {
-            enableBlocking(for: apps)
+            enableBlocking(for: selection)
         }
     }
 }

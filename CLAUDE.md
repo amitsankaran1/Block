@@ -39,8 +39,8 @@ The app uses three singleton managers with a **callback coordination pattern** r
 
 1. **AppConfigurationStore** (`Services/AppConfigurationStore.swift`)
    - Singleton managing persistent app state
-   - Properties: `selectedApps`, `registeredTagIdentifier`, `isBlockingEnabled`
-   - Persists to UserDefaults
+   - Properties: `selectedApps` (FamilyActivitySelection), `registeredTagIdentifier`, `isBlockingEnabled`
+   - `selectedApps` persists automatically via iOS system; tag and blocking state persist to UserDefaults
    - Observable: Views react automatically via `@Published` properties
 
 2. **ScreenTimeManager** (`Services/ScreenTimeManager.swift`)

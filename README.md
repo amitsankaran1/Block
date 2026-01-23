@@ -228,10 +228,10 @@ Block/
 ## State Management
 
 ### AppConfigurationStore (Singleton)
-- `selectedApps`: Set of ApplicationToken
+- `selectedApps`: FamilyActivitySelection (persisted automatically by iOS)
 - `registeredTagIdentifier`: String?
 - `isBlockingEnabled`: Bool
-- Persists to UserDefaults
+- Persists tag and blocking state to UserDefaults
 
 ### ScreenTimeManager (Singleton, MainActor)
 - `authorizationStatus`: AuthorizationStatus

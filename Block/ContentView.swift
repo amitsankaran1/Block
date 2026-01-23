@@ -101,7 +101,7 @@ struct ContentView: View {
                             )
                             
                             if configStore.hasSelectedApps {
-                                Text("\(configStore.selectedApps.count) app\(configStore.selectedApps.count == 1 ? "" : "s") selected")
+                                Text("\(configStore.selectedApps.applicationTokens.count) app\(configStore.selectedApps.applicationTokens.count == 1 ? "" : "s") selected")
                                     .font(.system(.body, design: .default).weight(.medium))
                                     .foregroundColor(ArtNouveauTheme.secondaryLabel)
                             }
@@ -255,6 +255,7 @@ struct ContentView: View {
             }
             .onAppear {
                 screenTimeManager.checkAuthorizationStatus()
+                screenTimeManager.restoreBlockingIfNeeded()
             }
         }
     }
