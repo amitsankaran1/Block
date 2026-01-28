@@ -15,7 +15,25 @@ struct SettingsView: View {
     @State private var showTypingChallenge = false
     @State private var isRequestingAuthorization = false
     @Environment(\.dismiss) private var dismiss
-    
+
+    private var selectionSummary: String {
+        let appCount = configStore.selectedApps.applicationTokens.count
+        let categoryCount = configStore.selectedApps.categoryTokens.count
+
+        var parts: [String] = []
+        if appCount > 0 {
+            parts.append("\(appCount) app\(appCount == 1 ? "" : "s")")
+        }
+        if categoryCount > 0 {
+            parts.append("\(categoryCount) categor\(categoryCount == 1 ? "y" : "ies")")
+        }
+
+        if parts.isEmpty {
+            return "Selection ready to block."
+        }
+        return "\(parts.joined(separator: ", ")) ready to block."
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
@@ -176,12 +194,12 @@ struct SettingsView: View {
                                             .font(.system(.headline, design: .default).weight(.bold))
                                             .foregroundColor(ArtNouveauTheme.label)
 
-                                        if configStore.hasSelectedApps && configStore.selectedApps.applicationTokens.isEmpty {
+                                        if configStore.hasSelectedApps && configStore.selectedApps.applicationTokens.isEmpty && configStore.selectedApps.categoryTokens.isEmpty {
                                             Text("Tap the button below to confirm your app selection.")
                                                 .font(.system(.subheadline, design: .default))
                                                 .foregroundColor(ArtNouveauTheme.warning)
                                         } else if configStore.hasSelectedApps {
-                                            Text("\(configStore.selectedApps.applicationTokens.count) app\(configStore.selectedApps.applicationTokens.count == 1 ? "" : "s") ready to block.")
+                                            Text(selectionSummary)
                                                 .font(.system(.subheadline, design: .default))
                                                 .foregroundColor(ArtNouveauTheme.secondaryLabel)
                                         } else {
