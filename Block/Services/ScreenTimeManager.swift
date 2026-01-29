@@ -61,9 +61,11 @@ class ScreenTimeManager: ObservableObject {
         print("🔐 Authorization status: \(status)")
         authorizationStatus = status
 
-        // If authorization just became approved and we have saved apps, restore blocking if needed
+        // If authorization just became approved, reload selection (tokens may
+        // only resolve once authorization is active) and restore blocking
         if previousStatus != .approved && status == .approved {
-            print("✅ Authorization just approved - checking if we need to restore")
+            print("✅ Authorization just approved - reloading selection and restoring")
+            configStore.reloadSelectedApps()
             restoreBlockingIfNeeded()
         }
     }
@@ -73,7 +75,8 @@ class ScreenTimeManager: ObservableObject {
             try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
             checkAuthorizationStatus()
 
-            // After authorization, ensure blocking is restored if it was previously enabled
+            // After authorization, reload saved selection and restore blocking
+            configStore.reloadSelectedApps()
             restoreBlockingIfNeeded()
         } catch {
             throw error

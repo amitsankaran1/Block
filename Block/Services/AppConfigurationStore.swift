@@ -79,6 +79,27 @@ class AppConfigurationStore: ObservableObject {
         }
     }
 
+    /// Re-decode the saved FamilyActivitySelection from UserDefaults.
+    /// Call this after Screen Time authorization is confirmed, since opaque
+    /// tokens may only resolve once the app has active authorization.
+    func reloadSelectedApps() {
+        guard let data = UserDefaults.standard.data(forKey: selectedAppsKey) else {
+            print("ℹ️ reloadSelectedApps: no saved data in UserDefaults")
+            return
+        }
+        do {
+            let decoder = JSONDecoder()
+            isLoadingFromDefaults = true
+            let loadedSelection = try decoder.decode(FamilyActivitySelection.self, from: data)
+            selectedApps = loadedSelection
+            isLoadingFromDefaults = false
+            print("🔄 Reloaded FamilyActivitySelection: \(selectedApps.applicationTokens.count) apps, \(selectedApps.categoryTokens.count) categories")
+        } catch {
+            print("❌ reloadSelectedApps failed to decode: \(error)")
+            isLoadingFromDefaults = false
+        }
+    }
+
     func clearSelectedApps() {
         selectedApps = FamilyActivitySelection()
         UserDefaults.standard.removeObject(forKey: selectedAppsKey)

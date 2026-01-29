@@ -364,6 +364,8 @@ struct SettingsView: View {
         }
         .familyActivityPicker(isPresented: $showPicker, selection: $configStore.selectedApps)
         .onChange(of: configStore.selectedApps) { newValue in
+            // Immediately persist the selection (don't rely solely on debounce)
+            configStore.saveSelectedApps(newValue)
             // Update blocking if currently enabled
             if configStore.isBlockingEnabled {
                 screenTimeManager.updateBlocking(for: newValue)
