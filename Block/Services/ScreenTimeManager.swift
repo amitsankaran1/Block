@@ -47,11 +47,16 @@ class ScreenTimeManager: ObservableObject {
             return
         }
 
-        if configStore.isBlockingEnabled && !configStore.selectedApps.applicationTokens.isEmpty {
-            print("✅ Restoring blocking for \(configStore.selectedApps.applicationTokens.count) apps")
-            store.shield.applications = configStore.selectedApps.applicationTokens
+        let selection = configStore.selectedApps
+        let hasAppsToBlock = !selection.applicationTokens.isEmpty || !selection.categoryTokens.isEmpty
+
+        if configStore.isBlockingEnabled && hasAppsToBlock {
+            print("✅ Restoring blocking for \(selection.applicationTokens.count) apps, \(selection.categoryTokens.count) categories")
+            store.shield.applications = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
+            store.shield.applicationCategories = selection.categoryTokens.isEmpty ? nil : .specific(selection.categoryTokens)
+            store.shield.webDomains = selection.webDomainTokens.isEmpty ? nil : selection.webDomainTokens
         } else {
-            print("ℹ️ No blocking to restore (enabled: \(configStore.isBlockingEnabled), apps: \(configStore.selectedApps.applicationTokens.count))")
+            print("ℹ️ No blocking to restore (enabled: \(configStore.isBlockingEnabled), apps: \(selection.applicationTokens.count), categories: \(selection.categoryTokens.count))")
         }
 
         // Restore manually-enabled preset shields
@@ -66,9 +71,11 @@ class ScreenTimeManager: ObservableObject {
         print("🔐 Authorization status: \(status)")
         authorizationStatus = status
 
-        // If authorization just became approved and we have saved apps, restore blocking if needed
+        // If authorization just became approved, reload selection (tokens may
+        // only resolve once authorization is active) and restore blocking
         if previousStatus != .approved && status == .approved {
-            print("✅ Authorization just approved - checking if we need to restore")
+            print("✅ Authorization just approved - reloading selection and restoring")
+            configStore.reloadSelectedApps()
             restoreBlockingIfNeeded()
         }
     }
@@ -78,7 +85,8 @@ class ScreenTimeManager: ObservableObject {
             try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
             checkAuthorizationStatus()
 
-            // After authorization, ensure blocking is restored if it was previously enabled
+            // After authorization, reload saved selection and restore blocking
+            configStore.reloadSelectedApps()
             restoreBlockingIfNeeded()
         } catch {
             throw error
@@ -92,9 +100,17 @@ class ScreenTimeManager: ObservableObject {
             return
         }
 
-        // Apply blocking - setting applications will show default shield
+        // Apply blocking - setting applications/categories will show default shield
         // Custom shield configuration requires a separate app extension
-        store.shield.applications = selection.applicationTokens
+        // Note: FamilyActivitySelection contains three types of tokens:
+        // - applicationTokens: individual apps
+        // - categoryTokens: app categories (used when selecting "all apps" or bulk selections)
+        // - webDomainTokens: web domains
+        store.shield.applications = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
+        store.shield.applicationCategories = selection.categoryTokens.isEmpty ? nil : .specific(selection.categoryTokens)
+        store.shield.webDomains = selection.webDomainTokens.isEmpty ? nil : selection.webDomainTokens
+
+        print("🛡️ Enabled blocking: \(selection.applicationTokens.count) apps, \(selection.categoryTokens.count) categories, \(selection.webDomainTokens.count) domains")
 
         configStore.setBlockingEnabled(true)
     }
