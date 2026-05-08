@@ -19,7 +19,7 @@ class AppConfigurationStore: ObservableObject {
                 debouncedSave()
                 // Track that user has selected apps
                 if !selectedApps.applicationTokens.isEmpty {
-                    UserDefaults.standard.set(true, forKey: hasSelectedAppsKey)
+                    defaults.set(true, forKey: hasSelectedAppsKey)
                 }
             }
         }
@@ -27,16 +27,37 @@ class AppConfigurationStore: ObservableObject {
     @Published var registeredTagIdentifier: String? = nil
     @Published var isBlockingEnabled: Bool = false
 
-    private let selectedAppsKey = "selectedApps"
-    private let hasSelectedAppsKey = "hasSelectedApps"
-    private let registeredTagKey = "registeredTagIdentifier"
-    private let blockingEnabledKey = "isBlockingEnabled"
+    private let selectedAppsKey = SharedDefaults.Keys.selectedApps
+    private let hasSelectedAppsKey = SharedDefaults.Keys.hasSelectedApps
+    private let registeredTagKey = SharedDefaults.Keys.registeredTag
+    private let blockingEnabledKey = SharedDefaults.Keys.blockingEnabled
     private var isLoadingFromDefaults = false
     private var userHasSelectedApps: Bool = false
     private var saveTask: Task<Void, Never>?
 
+    private var defaults: UserDefaults { SharedDefaults.suite }
+
     private init() {
+        AppConfigurationStore.migrateLegacyDefaults()
         loadConfiguration()
+    }
+
+    /// Copy legacy keys from `UserDefaults.standard` into the App Group suite on first launch
+    /// so existing installs aren't reset. Safe to call multiple times.
+    static func migrateLegacyDefaults() {
+        let standard = UserDefaults.standard
+        let suite = SharedDefaults.suite
+        let keys = [
+            SharedDefaults.Keys.selectedApps,
+            SharedDefaults.Keys.hasSelectedApps,
+            SharedDefaults.Keys.registeredTag,
+            SharedDefaults.Keys.blockingEnabled
+        ]
+        for key in keys where suite.object(forKey: key) == nil {
+            if let value = standard.object(forKey: key) {
+                suite.set(value, forKey: key)
+            }
+        }
     }
 
     private func debouncedSave() {
@@ -60,7 +81,7 @@ class AppConfigurationStore: ObservableObject {
         do {
             let encoder = JSONEncoder()
             let data = try encoder.encode(selectedApps)
-            UserDefaults.standard.set(data, forKey: selectedAppsKey)
+            defaults.set(data, forKey: selectedAppsKey)
             print("💾 Saved \(selectedApps.applicationTokens.count) apps to UserDefaults")
         } catch {
             print("❌ Failed to encode selectedApps: \(error)")
@@ -74,41 +95,41 @@ class AppConfigurationStore: ObservableObject {
 
         // Track that user has selected apps
         if !selection.applicationTokens.isEmpty {
-            UserDefaults.standard.set(true, forKey: hasSelectedAppsKey)
+            defaults.set(true, forKey: hasSelectedAppsKey)
             userHasSelectedApps = true
         }
     }
 
     func clearSelectedApps() {
         selectedApps = FamilyActivitySelection()
-        UserDefaults.standard.removeObject(forKey: selectedAppsKey)
-        UserDefaults.standard.set(false, forKey: hasSelectedAppsKey)
+        defaults.removeObject(forKey: selectedAppsKey)
+        defaults.set(false, forKey: hasSelectedAppsKey)
         userHasSelectedApps = false
     }
-    
+
     func registerTag(identifier: String) {
         registeredTagIdentifier = identifier
-        UserDefaults.standard.set(identifier, forKey: registeredTagKey)
+        defaults.set(identifier, forKey: registeredTagKey)
     }
-    
+
     func clearTagRegistration() {
         registeredTagIdentifier = nil
-        UserDefaults.standard.removeObject(forKey: registeredTagKey)
+        defaults.removeObject(forKey: registeredTagKey)
     }
-    
+
     func setBlockingEnabled(_ enabled: Bool) {
         isBlockingEnabled = enabled
-        UserDefaults.standard.set(enabled, forKey: blockingEnabledKey)
+        defaults.set(enabled, forKey: blockingEnabledKey)
     }
-    
+
     func toggleBlocking() {
         setBlockingEnabled(!isBlockingEnabled)
     }
-    
+
     private func loadConfiguration() {
-        registeredTagIdentifier = UserDefaults.standard.string(forKey: registeredTagKey)
-        isBlockingEnabled = UserDefaults.standard.bool(forKey: blockingEnabledKey)
-        userHasSelectedApps = UserDefaults.standard.bool(forKey: hasSelectedAppsKey)
+        registeredTagIdentifier = defaults.string(forKey: registeredTagKey)
+        isBlockingEnabled = defaults.bool(forKey: blockingEnabledKey)
+        userHasSelectedApps = defaults.bool(forKey: hasSelectedAppsKey)
 
         print("🔄 Loading configuration...")
         print("   - Tag registered: \(registeredTagIdentifier != nil)")
@@ -116,7 +137,7 @@ class AppConfigurationStore: ObservableObject {
         print("   - User has selected apps: \(userHasSelectedApps)")
 
         // Load selectedApps from UserDefaults
-        if let data = UserDefaults.standard.data(forKey: selectedAppsKey) {
+        if let data = defaults.data(forKey: selectedAppsKey) {
             do {
                 let decoder = JSONDecoder()
                 isLoadingFromDefaults = true
@@ -149,7 +170,7 @@ class AppConfigurationStore: ObservableObject {
         // (tokens might be empty temporarily if authorization is pending)
         !selectedApps.applicationTokens.isEmpty || userHasSelectedApps
     }
-    
+
     var isTagRegistered: Bool {
         registeredTagIdentifier != nil
     }

@@ -264,6 +264,24 @@ struct SettingsView: View {
                     }
                 }
 
+                // Blocking Presets Section
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Blocking Presets")
+                        .font(.system(.headline, design: .default).weight(.bold))
+                        .foregroundColor(ArtNouveauTheme.label)
+                        .padding(.horizontal, 24)
+
+                    ArtNouveauCard(shadow: ArtNouveauTheme.shadowMedium) {
+                        PresetListView()
+                    }
+                    .padding(.horizontal, 24)
+
+                    Text("Each preset blocks its own apps independently. Schedules run in the background and override the tag.")
+                        .font(.system(.caption, design: .default))
+                        .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                        .padding(.horizontal, 24)
+                }
+
                 // Emergency Override Section
                 if configStore.isBlockingEnabled {
                     VStack(alignment: .leading, spacing: 16) {

@@ -12,9 +12,18 @@ import CoreNFC
 struct BlockApp: App {
     @StateObject private var nfcManager = NFCManager.shared
 
+    init() {
+        AppConfigurationStore.migrateLegacyDefaults()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .task {
+                    _ = PresetStore.shared
+                    SchedulingManager.shared.reapplyAllSchedules()
+                    CooldownManager.shared.restoreActiveCooldownsIfAny()
+                }
         }
     }
 }

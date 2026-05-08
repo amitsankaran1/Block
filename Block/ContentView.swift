@@ -6,13 +6,25 @@
 //
 
 import SwiftUI
+import UIKit
 import FamilyControls
 
 struct ContentView: View {
     @StateObject private var configStore = AppConfigurationStore.shared
     @StateObject private var screenTimeManager = ScreenTimeManager.shared
     @StateObject private var nfcManager = NFCManager.shared
+    @StateObject private var schedulingManager = SchedulingManager.shared
+    @StateObject private var presetStore = PresetStore.shared
     @State private var showSettings = false
+
+    private var anyShieldActive: Bool {
+        configStore.isBlockingEnabled || !schedulingManager.activeScheduledPresetIDs.isEmpty
+    }
+
+    private var activeScheduledPresets: [BlockingPreset] {
+        let ids = schedulingManager.activeScheduledPresetIDs
+        return presetStore.presets.filter { ids.contains($0.id) }
+    }
 
     var body: some View {
         NavigationView {
@@ -36,59 +48,59 @@ struct ContentView: View {
                             // Glow effect
                             Circle()
                                 .fill(
-                                    configStore.isBlockingEnabled 
-                                        ? ArtNouveauTheme.errorGradient 
+                                    anyShieldActive
+                                        ? ArtNouveauTheme.errorGradient
                                         : ArtNouveauTheme.successGradient
                                 )
                                 .frame(width: 140, height: 140)
                                 .blur(radius: 20)
                                 .opacity(0.4)
-                            
+
                             // Main status circle with gradient
                             Circle()
                                 .fill(
-                                    configStore.isBlockingEnabled 
-                                        ? ArtNouveauTheme.errorGradient 
+                                    anyShieldActive
+                                        ? ArtNouveauTheme.errorGradient
                                         : ArtNouveauTheme.successGradient
                                 )
                                 .frame(width: 120, height: 120)
                                 .shadow(
-                                    color: (configStore.isBlockingEnabled ? ArtNouveauTheme.error : ArtNouveauTheme.success).opacity(0.4),
+                                    color: (anyShieldActive ? ArtNouveauTheme.error : ArtNouveauTheme.success).opacity(0.4),
                                     radius: 16,
                                     x: 0,
                                     y: 8
                                 )
-                            
+
                             // Inner circle for depth
                             Circle()
                                 .fill(
-                                    configStore.isBlockingEnabled 
-                                        ? ArtNouveauTheme.errorLight 
+                                    anyShieldActive
+                                        ? ArtNouveauTheme.errorLight
                                         : ArtNouveauTheme.successLight
                                 )
                                 .frame(width: 100, height: 100)
-                            
+
                             // Lock icon - large and prominent
-                            Image(systemName: configStore.isBlockingEnabled ? "lock.shield.fill" : "lock.open.fill")
+                            Image(systemName: anyShieldActive ? "lock.shield.fill" : "lock.open.fill")
                                 .font(.system(size: 48, weight: .bold))
                                 .foregroundColor(.white)
                                 .symbolRenderingMode(.hierarchical)
                                 .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
                         }
-                        .scaleEffect(configStore.isBlockingEnabled ? 1.0 : 0.95)
-                        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: configStore.isBlockingEnabled)
+                        .scaleEffect(anyShieldActive ? 1.0 : 0.95)
+                        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: anyShieldActive)
 
                         // Status badge with background
                         VStack(spacing: 12) {
                             HStack(spacing: 8) {
                                 Circle()
-                                    .fill(configStore.isBlockingEnabled ? ArtNouveauTheme.error : ArtNouveauTheme.success)
+                                    .fill(anyShieldActive ? ArtNouveauTheme.error : ArtNouveauTheme.success)
                                     .frame(width: 10, height: 10)
-                                    .shadow(color: (configStore.isBlockingEnabled ? ArtNouveauTheme.error : ArtNouveauTheme.success).opacity(0.6), radius: 4, x: 0, y: 2)
-                                
-                                Text(configStore.isBlockingEnabled ? "BLOCKING ACTIVE" : "BLOCKING INACTIVE")
+                                    .shadow(color: (anyShieldActive ? ArtNouveauTheme.error : ArtNouveauTheme.success).opacity(0.6), radius: 4, x: 0, y: 2)
+
+                                Text(anyShieldActive ? "BLOCKING ACTIVE" : "BLOCKING INACTIVE")
                                     .font(.system(.subheadline, design: .default).weight(.bold))
-                                    .foregroundColor(configStore.isBlockingEnabled ? ArtNouveauTheme.error : ArtNouveauTheme.success)
+                                    .foregroundColor(anyShieldActive ? ArtNouveauTheme.error : ArtNouveauTheme.success)
                                     .tracking(1.2)
                             }
                             .padding(.horizontal, 20)
@@ -96,14 +108,40 @@ struct ContentView: View {
                             .background(
                                 Capsule()
                                     .fill(
-                                        (configStore.isBlockingEnabled ? ArtNouveauTheme.errorLight : ArtNouveauTheme.successLight)
+                                        (anyShieldActive ? ArtNouveauTheme.errorLight : ArtNouveauTheme.successLight)
                                     )
                             )
-                            
+
                             if configStore.hasSelectedApps {
                                 Text("\(configStore.selectedApps.applicationTokens.count) app\(configStore.selectedApps.applicationTokens.count == 1 ? "" : "s") selected")
                                     .font(.system(.body, design: .default).weight(.medium))
                                     .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                            }
+
+                            if !activeScheduledPresets.isEmpty {
+                                VStack(spacing: 6) {
+                                    Text("Scheduled blocks")
+                                        .font(.system(.caption2, design: .default).weight(.bold))
+                                        .tracking(1.0)
+                                        .textCase(.uppercase)
+                                        .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                                    HStack(spacing: 6) {
+                                        ForEach(activeScheduledPresets) { preset in
+                                            HStack(spacing: 4) {
+                                                Circle()
+                                                    .fill(ArtNouveauTheme.error)
+                                                    .frame(width: 6, height: 6)
+                                                Text(preset.name)
+                                                    .font(.system(.caption, design: .default).weight(.semibold))
+                                                    .foregroundColor(ArtNouveauTheme.error)
+                                            }
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 5)
+                                            .background(Capsule().fill(ArtNouveauTheme.errorLight))
+                                        }
+                                    }
+                                }
+                                .padding(.top, 4)
                             }
                         }
                     }
@@ -256,6 +294,10 @@ struct ContentView: View {
             .onAppear {
                 screenTimeManager.checkAuthorizationStatus()
                 screenTimeManager.restoreBlockingIfNeeded()
+                schedulingManager.refresh()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                schedulingManager.refresh()
             }
         }
     }
