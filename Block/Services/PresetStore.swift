@@ -106,6 +106,14 @@ class PresetStore: ObservableObject {
         }
     }
 
+    /// Cancel pending debounced save and flush to disk synchronously.
+    /// The in-process actuator path needs this so cross-process readers
+    /// (and the extension) see fresh state immediately after a create/update.
+    func flush() {
+        saveTask?.cancel()
+        persistNow()
+    }
+
     private func persistNow() {
         do {
             let data = try JSONEncoder().encode(presets)

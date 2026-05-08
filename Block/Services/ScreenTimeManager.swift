@@ -89,6 +89,9 @@ class ScreenTimeManager: ObservableObject {
 
     func enableBlocking(for selection: FamilyActivitySelection) {
         guard authorizationStatus == .approved else {
+            #if DEBUG
+            DebugLog.shared.log(.screenTime, "enableBlocking skipped — auth not approved")
+            #endif
             return
         }
 
@@ -97,11 +100,17 @@ class ScreenTimeManager: ObservableObject {
         store.shield.applications = selection.applicationTokens
 
         configStore.setBlockingEnabled(true)
+        #if DEBUG
+        DebugLog.shared.log(.screenTime, "enableBlocking applied (\(selection.applicationTokens.count) apps) on default store")
+        #endif
     }
 
     func disableBlocking() {
         store.clearAllSettings()
         configStore.setBlockingEnabled(false)
+        #if DEBUG
+        DebugLog.shared.log(.screenTime, "disableBlocking cleared default store")
+        #endif
     }
 
     func toggleBlocking(for selection: FamilyActivitySelection) {
@@ -131,7 +140,12 @@ class ScreenTimeManager: ObservableObject {
     /// Apply a preset's shield to its named store. Safe to call when authorization is pending —
     /// it will be restored later via `restoreBlockingIfNeeded`.
     func applyPresetShield(_ preset: BlockingPreset) {
-        guard authorizationStatus == .approved else { return }
+        guard authorizationStatus == .approved else {
+            #if DEBUG
+            DebugLog.shared.log(.screenTime, "applyPresetShield(\(preset.name)) skipped — auth not approved")
+            #endif
+            return
+        }
         let store = presetStore(for: preset.id)
         store.shield.applications = preset.selection.applicationTokens.isEmpty
             ? nil
@@ -141,12 +155,18 @@ class ScreenTimeManager: ObservableObject {
         } else {
             store.shield.applicationCategories = nil
         }
+        #if DEBUG
+        DebugLog.shared.log(.screenTime, "applyPresetShield(\(preset.name)): \(preset.selection.applicationTokens.count) apps, \(preset.selection.categoryTokens.count) categories")
+        #endif
     }
 
     /// Clear a preset's shield (cooldown completion or manual disable).
     func clearPresetShield(id: UUID) {
         let store = presetStore(for: id)
         store.clearAllSettings()
+        #if DEBUG
+        DebugLog.shared.log(.screenTime, "clearPresetShield for \(id.uuidString.prefix(8))")
+        #endif
     }
 
     /// Convenience used by the editor: re-apply if currently shielded (manual or scheduled).

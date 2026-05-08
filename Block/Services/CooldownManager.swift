@@ -55,6 +55,9 @@ class CooldownManager: ObservableObject {
         activeCooldown = cooldown
         defaults.set(endsAt, forKey: SharedDefaults.Keys.cooldownEnd(presetID: presetID))
         startTickTimer()
+        #if DEBUG
+        DebugLog.shared.log(.cooldown, "start(\(minutes)m) preset=\(presetID.uuidString.prefix(8)) ends=\(endsAt)")
+        #endif
 
         // Edge case: zero-minute cooldown completes immediately.
         if endsAt <= Date() {
@@ -106,8 +109,8 @@ class CooldownManager: ObservableObject {
     private func startTickTimer() {
         tickTimer?.invalidate()
         tickTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self = self, let active = self.activeCooldown else { return }
+            Task { @MainActor [weak self] in
+                guard let self, let active = self.activeCooldown else { return }
                 // Force a publisher update so the view recomputes `remaining`.
                 self.objectWillChange.send()
                 if active.endsAt <= Date() {

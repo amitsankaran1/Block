@@ -14,8 +14,11 @@ struct SettingsView: View {
     @State private var showPicker = false
     @State private var showTypingChallenge = false
     @State private var isRequestingAuthorization = false
+    #if DEBUG
+    @State private var debugMenuActive = false
+    #endif
     @Environment(\.dismiss) private var dismiss
-    
+
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
@@ -282,6 +285,40 @@ struct SettingsView: View {
                         .padding(.horizontal, 24)
                 }
 
+                #if DEBUG
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Developer")
+                        .font(.system(.headline, design: .default).weight(.bold))
+                        .foregroundColor(ArtNouveauTheme.label)
+                        .padding(.horizontal, 24)
+
+                    ArtNouveauCard(shadow: ArtNouveauTheme.shadowMedium) {
+                        NavigationLink {
+                            DebugMenuView()
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "ladybug.fill")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundColor(ArtNouveauTheme.warning)
+                                Text("Debug Menu")
+                                    .font(.system(.headline, design: .default).weight(.semibold))
+                                    .foregroundColor(ArtNouveauTheme.label)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 24)
+
+                    Text("Test affordances for simulator development. Stripped from release builds.")
+                        .font(.system(.caption, design: .default))
+                        .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                        .padding(.horizontal, 24)
+                }
+                #endif
+
                 // Emergency Override Section
                 if configStore.isBlockingEnabled {
                     VStack(alignment: .leading, spacing: 16) {
@@ -372,6 +409,25 @@ struct SettingsView: View {
         .sheet(isPresented: $showTypingChallenge) {
             TypingChallengeView(isPresented: $showTypingChallenge)
         }
+        #if DEBUG
+        .fullScreenCover(isPresented: $debugMenuActive) {
+            NavigationView {
+                DebugMenuView()
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("Close") { debugMenuActive = false }
+                        }
+                    }
+            }
+        }
+        .onAppear {
+            if ProcessInfo.processInfo.environment["BLOCK_OPEN_DEBUG_MENU"] == "1" {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    debugMenuActive = true
+                }
+            }
+        }
+        #endif
     }
 }
 

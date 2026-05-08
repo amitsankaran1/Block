@@ -7,15 +7,49 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		BD0000000000000000000001 /* BlockMonitor.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BD0000000000000000000002 /* BlockMonitor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BEA309FE2F0F768700A5BA71 /* FamilyControls.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BEA309FD2F0F768700A5BA71 /* FamilyControls.framework */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		BD000000000000000000000F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BE92B2602F0F5EC400D1AD74 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BD0000000000000000000006;
+			remoteInfo = BlockMonitor;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		BD000000000000000000000A /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				BD0000000000000000000001 /* BlockMonitor.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		BD0000000000000000000002 /* BlockMonitor.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BlockMonitor.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BE92B2682F0F5EC400D1AD74 /* Block.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Block.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BEA309FD2F0F768700A5BA71 /* FamilyControls.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FamilyControls.framework; path = System/Library/Frameworks/FamilyControls.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		BD0000000000000000000003 /* Exceptions for "BlockMonitor" folder in "BlockMonitor" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				BlockMonitor.entitlements,
+			);
+			target = BD0000000000000000000006 /* BlockMonitor */;
+		};
 		BEDD37602F10A7BA00A3DC3C /* Exceptions for "Block" folder in "Block" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -26,6 +60,19 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		BD0000000000000000000004 /* BlockMonitor */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				BD0000000000000000000003 /* Exceptions for "BlockMonitor" folder in "BlockMonitor" target */,
+			);
+			path = BlockMonitor;
+			sourceTree = "<group>";
+		};
+		BD0000000000000000000005 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
+			sourceTree = "<group>";
+		};
 		BE92B26A2F0F5EC400D1AD74 /* Block */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -37,6 +84,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		BD0000000000000000000008 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		BE92B2652F0F5EC400D1AD74 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -52,6 +106,8 @@
 			isa = PBXGroup;
 			children = (
 				BE92B26A2F0F5EC400D1AD74 /* Block */,
+				BD0000000000000000000004 /* BlockMonitor */,
+				BD0000000000000000000005 /* Shared */,
 				BEA309FC2F0F768700A5BA71 /* Frameworks */,
 				BE92B2692F0F5EC400D1AD74 /* Products */,
 			);
@@ -61,6 +117,7 @@
 			isa = PBXGroup;
 			children = (
 				BE92B2682F0F5EC400D1AD74 /* Block.app */,
+				BD0000000000000000000002 /* BlockMonitor.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -76,6 +133,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		BD0000000000000000000006 /* BlockMonitor */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BD000000000000000000000B /* Build configuration list for PBXNativeTarget "BlockMonitor" */;
+			buildPhases = (
+				BD0000000000000000000007 /* Sources */,
+				BD0000000000000000000008 /* Frameworks */,
+				BD0000000000000000000009 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				BD0000000000000000000004 /* BlockMonitor */,
+				BD0000000000000000000005 /* Shared */,
+			);
+			name = BlockMonitor;
+			packageProductDependencies = (
+			);
+			productName = BlockMonitor;
+			productReference = BD0000000000000000000002 /* BlockMonitor.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		BE92B2672F0F5EC400D1AD74 /* Block */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = BE92B2732F0F5EC600D1AD74 /* Build configuration list for PBXNativeTarget "Block" */;
@@ -83,13 +163,16 @@
 				BE92B2642F0F5EC400D1AD74 /* Sources */,
 				BE92B2652F0F5EC400D1AD74 /* Frameworks */,
 				BE92B2662F0F5EC400D1AD74 /* Resources */,
+				BD000000000000000000000A /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				BD000000000000000000000E /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				BE92B26A2F0F5EC400D1AD74 /* Block */,
+				BD0000000000000000000005 /* Shared */,
 			);
 			name = Block;
 			packageProductDependencies = (
@@ -108,6 +191,9 @@
 				LastSwiftUpdateCheck = 2620;
 				LastUpgradeCheck = 2620;
 				TargetAttributes = {
+					BD0000000000000000000006 = {
+						CreatedOnToolsVersion = 26.2;
+					};
 					BE92B2672F0F5EC400D1AD74 = {
 						CreatedOnToolsVersion = 26.2;
 					};
@@ -128,11 +214,19 @@
 			projectRoot = "";
 			targets = (
 				BE92B2672F0F5EC400D1AD74 /* Block */,
+				BD0000000000000000000006 /* BlockMonitor */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		BD0000000000000000000009 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		BE92B2662F0F5EC400D1AD74 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -143,6 +237,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		BD0000000000000000000007 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		BE92B2642F0F5EC400D1AD74 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -152,7 +253,65 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		BD000000000000000000000E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BD0000000000000000000006 /* BlockMonitor */;
+			targetProxy = BD000000000000000000000F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		BD000000000000000000000C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = BlockMonitor/BlockMonitor.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DAG83US2FV;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = BlockMonitor/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = name.amitsankaran.Block.BlockMonitor;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BD000000000000000000000D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = BlockMonitor/BlockMonitor.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DAG83US2FV;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = BlockMonitor/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = name.amitsankaran.Block.BlockMonitor;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		BE92B2712F0F5EC600D1AD74 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -349,6 +508,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		BD000000000000000000000B /* Build configuration list for PBXNativeTarget "BlockMonitor" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BD000000000000000000000C /* Debug */,
+				BD000000000000000000000D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		BE92B2632F0F5EC400D1AD74 /* Build configuration list for PBXProject "Block" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

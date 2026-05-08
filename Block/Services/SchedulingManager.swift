@@ -63,9 +63,15 @@ class SchedulingManager: ObservableObject {
                 )
             }
             lastError = nil
+            #if DEBUG
+            DebugLog.shared.log(.deviceActivity, "applySchedule(\(preset.name)): \(schedule.summary)")
+            #endif
         } catch {
             print("❌ startMonitoring failed for preset \(preset.id): \(error)")
             lastError = "Couldn't start schedule: \(error.localizedDescription)"
+            #if DEBUG
+            DebugLog.shared.log(.deviceActivity, "applySchedule(\(preset.name)) FAILED: \(error.localizedDescription)")
+            #endif
         }
     }
 
@@ -79,6 +85,9 @@ class SchedulingManager: ObservableObject {
         // Also clear the running flag — if the schedule is removed mid-window,
         // the extension won't fire intervalDidEnd, so we must clean up.
         SharedDefaults.suite.removeObject(forKey: SharedDefaults.Keys.running(presetID: preset.id))
+        #if DEBUG
+        DebugLog.shared.log(.deviceActivity, "removeSchedule(\(preset.name))")
+        #endif
     }
 
     /// Re-register all preset schedules. Call once at launch — `startMonitoring` is
@@ -107,7 +116,7 @@ class SchedulingManager: ObservableObject {
     private func startPeriodicRefresh() {
         refreshTimer?.invalidate()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.refresh() }
+            Task { @MainActor [weak self] in self?.refresh() }
         }
     }
 }
