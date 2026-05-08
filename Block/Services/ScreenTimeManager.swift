@@ -4,6 +4,10 @@
 //
 //  Created by Amit Sankaran on 1/7/26.
 //
+//  The unnamed default `ManagedSettingsStore` belongs to the NFC tag flow.
+//  Per-preset blocking uses `ManagedSettingsStore(named:)` instances keyed by preset UUID,
+//  so a tag tap (which only touches the unnamed store) cannot clear a scheduled preset's shield.
+//
 
 import Foundation
 import FamilyControls
@@ -18,6 +22,7 @@ class ScreenTimeManager: ObservableObject {
 
     private let store = ManagedSettingsStore()
     private let configStore = AppConfigurationStore.shared
+    private var presetStores: [UUID: ManagedSettingsStore] = [:]
 
     private init() {
         // Check authorization status multiple times to ensure we catch it when iOS is ready
@@ -47,14 +52,19 @@ class ScreenTimeManager: ObservableObject {
 
         if configStore.isBlockingEnabled && hasAppsToBlock {
             print("✅ Restoring blocking for \(selection.applicationTokens.count) apps, \(selection.categoryTokens.count) categories")
-            store.shield.applications = selection.applicationTokens
-            store.shield.applicationCategories = selection.categoryTokens
-            store.shield.webDomains = selection.webDomainTokens
+            store.shield.applications = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
+            store.shield.applicationCategories = selection.categoryTokens.isEmpty ? nil : .specific(selection.categoryTokens)
+            store.shield.webDomains = selection.webDomainTokens.isEmpty ? nil : selection.webDomainTokens
         } else {
             print("ℹ️ No blocking to restore (enabled: \(configStore.isBlockingEnabled), apps: \(selection.applicationTokens.count), categories: \(selection.categoryTokens.count))")
         }
+
+        // Restore manually-enabled preset shields
+        for preset in PresetStore.shared.presets where preset.isEnabled {
+            applyPresetShield(preset)
+        }
     }
-    
+
     func checkAuthorizationStatus() {
         let previousStatus = authorizationStatus
         let status = AuthorizationCenter.shared.authorizationStatus
@@ -82,7 +92,9 @@ class ScreenTimeManager: ObservableObject {
             throw error
         }
     }
-    
+
+    // MARK: - Tag flow (unnamed default store)
+
     func enableBlocking(for selection: FamilyActivitySelection) {
         guard authorizationStatus == .approved else {
             return
@@ -94,9 +106,9 @@ class ScreenTimeManager: ObservableObject {
         // - applicationTokens: individual apps
         // - categoryTokens: app categories (used when selecting "all apps" or bulk selections)
         // - webDomainTokens: web domains
-        store.shield.applications = selection.applicationTokens
-        store.shield.applicationCategories = selection.categoryTokens
-        store.shield.webDomains = selection.webDomainTokens
+        store.shield.applications = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
+        store.shield.applicationCategories = selection.categoryTokens.isEmpty ? nil : .specific(selection.categoryTokens)
+        store.shield.webDomains = selection.webDomainTokens.isEmpty ? nil : selection.webDomainTokens
 
         print("🛡️ Enabled blocking: \(selection.applicationTokens.count) apps, \(selection.categoryTokens.count) categories, \(selection.webDomainTokens.count) domains")
 
@@ -119,6 +131,45 @@ class ScreenTimeManager: ObservableObject {
     func updateBlocking(for selection: FamilyActivitySelection) {
         if configStore.isBlockingEnabled {
             enableBlocking(for: selection)
+        }
+    }
+
+    // MARK: - Preset flow (named stores)
+
+    private func presetStore(for id: UUID) -> ManagedSettingsStore {
+        if let existing = presetStores[id] { return existing }
+        let storeName = ManagedSettingsStore.Name(rawValue: "preset.\(id.uuidString)")
+        let store = ManagedSettingsStore(named: storeName)
+        presetStores[id] = store
+        return store
+    }
+
+    /// Apply a preset's shield to its named store. Safe to call when authorization is pending —
+    /// it will be restored later via `restoreBlockingIfNeeded`.
+    func applyPresetShield(_ preset: BlockingPreset) {
+        guard authorizationStatus == .approved else { return }
+        let store = presetStore(for: preset.id)
+        store.shield.applications = preset.selection.applicationTokens.isEmpty
+            ? nil
+            : preset.selection.applicationTokens
+        if !preset.selection.categoryTokens.isEmpty {
+            store.shield.applicationCategories = .specific(preset.selection.categoryTokens)
+        } else {
+            store.shield.applicationCategories = nil
+        }
+    }
+
+    /// Clear a preset's shield (cooldown completion or manual disable).
+    func clearPresetShield(id: UUID) {
+        let store = presetStore(for: id)
+        store.clearAllSettings()
+    }
+
+    /// Convenience used by the editor: re-apply if currently shielded (manual or scheduled).
+    func updatePresetShieldIfActive(_ preset: BlockingPreset) {
+        let scheduledActive = SharedDefaults.suite.bool(forKey: SharedDefaults.Keys.running(presetID: preset.id))
+        if preset.isEnabled || scheduledActive {
+            applyPresetShield(preset)
         }
     }
 }
