@@ -23,13 +23,13 @@
 ### Key Technologies
 - **Family Controls**: Screen Time authorization and app selection
 - **ManagedSettings**: App blocking enforcement
-- **CoreNFC**: NFC tag reading and background scanning
+- **CoreNFC**: NFC tag reading (foreground sessions)
 - **Combine**: Reactive state management
 
 ### App Structure
 ```
 Block/
-├── BlockApp.swift              # App entry point, handles background NFC
+├── BlockApp.swift              # App entry point
 ├── ContentView.swift           # Main screen
 ├── Views/
 │   ├── SettingsView.swift      # App selection screen
@@ -53,7 +53,7 @@ Block/
 6. User scans tag → Tag registered, ready to use
 
 ### Daily Use Flow
-1. User scans registered NFC tag (foreground or background)
+1. User opens the app and scans the registered NFC tag
 2. App detects tag matches registered identifier
 3. App toggles blocking state (on ↔ off)
 4. If blocking enabled: Selected apps show shield screen
@@ -249,8 +249,7 @@ Block/
 ## Key Interactions
 
 ### NFC Tag Scanning
-- **Foreground**: User initiates scan in Tag Registration view
-- **Background**: App can detect tag scans when in background
+- **Foreground only**: User initiates a scan from the main screen or Tag Registration view; the app must be open
 - **Matching**: Compares scanned tag identifier with registered identifier
 - **Action**: Toggles blocking if match found
 
@@ -306,21 +305,19 @@ Block/
 ### iOS Requirements
 - **NFC**: Requires iPhone with NFC (iPhone 7+)
 - **Family Controls**: Requires iOS 15+
-- **Capabilities**: 
+- **Capabilities**:
   - NFC Tag Reading
   - Family Controls (Development/Distribution)
-  - Background Modes: NFC Tag Reading
 
 ### Limitations
 - **App Selection**: Uses native FamilyActivityPicker (cannot customize)
 - **Shield Screen**: Uses default iOS shield (customization requires app extension)
-- **Background NFC**: Limited by iOS background execution policies
+- **Foreground-only NFC**: Tag scans require the app to be open; no lock-screen tap-to-toggle
 - **Token Persistence**: ApplicationToken managed by system, not directly storable
 
 ### Permissions Required
 1. **Screen Time**: User must grant Family Controls permission
 2. **NFC**: Automatically available on supported devices
-3. **Background**: NFC background reading capability
 
 ---
 

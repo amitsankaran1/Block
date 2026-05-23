@@ -295,6 +295,13 @@ struct ContentView: View {
                 screenTimeManager.checkAuthorizationStatus()
                 screenTimeManager.restoreBlockingIfNeeded()
                 schedulingManager.refresh()
+                #if DEBUG
+                if ProcessInfo.processInfo.environment["BLOCK_OPEN_SETTINGS"] == "1" {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                        showSettings = true
+                    }
+                }
+                #endif
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
                 schedulingManager.refresh()

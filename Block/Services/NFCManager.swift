@@ -73,29 +73,19 @@ class NFCManager: NSObject, ObservableObject {
         isScanning = false
     }
 
-    func handleBackgroundTag(_ identifier: String) {
-        guard let registeredTag = configStore.registeredTagIdentifier else {
-            return
-        }
-
-        if identifier == registeredTag {
-            screenTimeManager.toggleBlocking(for: configStore.selectedApps)
-        }
-    }
-
     func simulateTagScan(withId identifier: String) {
         lastScannedTag = identifier
 
-        // Check registration status BEFORE calling callback
         let wasRegistered = configStore.registeredTagIdentifier != nil
 
-        onTagScanned?(identifier)
+        #if DEBUG
+        DebugLog.shared.log(.nfc, "simulateTagScan id=\(identifier) (wasRegistered=\(wasRegistered))")
+        #endif
 
-        if !wasRegistered {
-            // Tag was just registered
-        } else {
-            handleBackgroundTag(identifier)
-        }
+        // Mirror production foreground behavior: dispatch a single callback.
+        // (Previously we also invoked handleBackgroundTag, which double-toggled
+        // and silently masked failures whenever auth wasn't approved.)
+        onTagScanned?(identifier)
     }
 }
 

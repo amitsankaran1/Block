@@ -85,7 +85,6 @@ The NFCManager doesn't directly call ScreenTimeManager. Instead:
 ### Key Technical Details
 
 - **ApplicationToken**: System-managed type from Family Controls. Cannot be serialized - selection persists via system, not UserDefaults
-- **Background NFC**: App can detect tag scans when backgrounded (requires proper entitlements)
 - **@MainActor**: Both ScreenTimeManager and NFCManager are MainActor-isolated for thread safety
 - **Singleton injection**: All managers use `shared` singleton instances, injected as `@StateObject` in views
 - **Tag identifier format**: Hex strings from tag hardware, e.g., "04a3b2c1d0e3f1"
@@ -99,7 +98,6 @@ The NFCManager doesn't directly call ScreenTimeManager. Instead:
 - **Xcode project capabilities** (configured in project settings):
   - NFC Tag Reading
   - Family Controls (requires special entitlement)
-  - Background Modes: NFC Tag Reading
 
 ---
 

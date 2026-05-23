@@ -23,6 +23,10 @@ struct BlockApp: App {
                     _ = PresetStore.shared
                     SchedulingManager.shared.reapplyAllSchedules()
                     CooldownManager.shared.restoreActiveCooldownsIfAny()
+                    #if DEBUG
+                    TestHarness.seedDemoStateIfRequested()
+                    TestHarness.runIfEnabled()
+                    #endif
                 }
         }
     }
