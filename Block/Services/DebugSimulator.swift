@@ -29,10 +29,10 @@ enum DebugSimulator {
     static func fireScheduleStart(presetID: UUID) {
         // Flush pending preset writes — actuator reads from disk like the extension does.
         PresetStore.shared.flush()
-        let applied = BlockingActuator.start(presetID: presetID)
+        let applied = BlockingActuator.start(presetID: presetID, bypassWeekday: true)
         DebugLog.shared.log(.actuator, applied
             ? "fireScheduleStart applied for preset \(presetID.uuidString.prefix(8))"
-            : "fireScheduleStart skipped (preset missing or weekday filtered) \(presetID.uuidString.prefix(8))")
+            : "fireScheduleStart skipped (preset missing) \(presetID.uuidString.prefix(8))")
         SchedulingManager.shared.refresh()
     }
 

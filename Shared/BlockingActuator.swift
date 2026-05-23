@@ -19,10 +19,10 @@ enum BlockingActuator {
     /// Mirrors `BlockMonitorExtension.intervalDidStart` so simulator and device
     /// behavior stay in lockstep.
     @discardableResult
-    static func start(presetID: UUID) -> Bool {
+    static func start(presetID: UUID, bypassWeekday: Bool = false) -> Bool {
         guard let preset = loadPreset(id: presetID) else { return false }
 
-        if let schedule = preset.schedule {
+        if !bypassWeekday, let schedule = preset.schedule {
             let weekday = Calendar.current.component(.weekday, from: Date())
             guard schedule.weekdays.contains(weekday) else { return false }
         }
