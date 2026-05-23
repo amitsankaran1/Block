@@ -19,6 +19,24 @@ struct SettingsView: View {
     #endif
     @Environment(\.dismiss) private var dismiss
 
+    private var selectionSummary: String {
+        let appCount = configStore.selectedApps.applicationTokens.count
+        let categoryCount = configStore.selectedApps.categoryTokens.count
+
+        var parts: [String] = []
+        if appCount > 0 {
+            parts.append("\(appCount) app\(appCount == 1 ? "" : "s")")
+        }
+        if categoryCount > 0 {
+            parts.append("\(categoryCount) categor\(categoryCount == 1 ? "y" : "ies")")
+        }
+
+        if parts.isEmpty {
+            return "Selection ready to block."
+        }
+        return "\(parts.joined(separator: ", ")) ready to block."
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
@@ -179,12 +197,12 @@ struct SettingsView: View {
                                             .font(.system(.headline, design: .default).weight(.bold))
                                             .foregroundColor(ArtNouveauTheme.label)
 
-                                        if configStore.hasSelectedApps && configStore.selectedApps.applicationTokens.isEmpty {
+                                        if configStore.hasSelectedApps && configStore.selectedApps.applicationTokens.isEmpty && configStore.selectedApps.categoryTokens.isEmpty {
                                             Text("Tap the button below to confirm your app selection.")
                                                 .font(.system(.subheadline, design: .default))
                                                 .foregroundColor(ArtNouveauTheme.warning)
                                         } else if configStore.hasSelectedApps {
-                                            Text("\(configStore.selectedApps.applicationTokens.count) app\(configStore.selectedApps.applicationTokens.count == 1 ? "" : "s") ready to block.")
+                                            Text(selectionSummary)
                                                 .font(.system(.subheadline, design: .default))
                                                 .foregroundColor(ArtNouveauTheme.secondaryLabel)
                                         } else {
@@ -401,6 +419,8 @@ struct SettingsView: View {
         }
         .familyActivityPicker(isPresented: $showPicker, selection: $configStore.selectedApps)
         .onChange(of: configStore.selectedApps) { newValue in
+            // Immediately persist the selection (don't rely solely on debounce)
+            configStore.saveSelectedApps(newValue)
             // Update blocking if currently enabled
             if configStore.isBlockingEnabled {
                 screenTimeManager.updateBlocking(for: newValue)

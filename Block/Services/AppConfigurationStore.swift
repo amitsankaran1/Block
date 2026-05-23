@@ -17,8 +17,8 @@ class AppConfigurationStore: ObservableObject {
         didSet {
             if !isLoadingFromDefaults {
                 debouncedSave()
-                // Track that user has selected apps
-                if !selectedApps.applicationTokens.isEmpty {
+                // Track that user has selected apps (including categories)
+                if !selectedApps.applicationTokens.isEmpty || !selectedApps.categoryTokens.isEmpty {
                     defaults.set(true, forKey: hasSelectedAppsKey)
                 }
             }
@@ -82,7 +82,7 @@ class AppConfigurationStore: ObservableObject {
             let encoder = JSONEncoder()
             let data = try encoder.encode(selectedApps)
             defaults.set(data, forKey: selectedAppsKey)
-            print("💾 Saved \(selectedApps.applicationTokens.count) apps to UserDefaults")
+            print("💾 Saved \(selectedApps.applicationTokens.count) apps, \(selectedApps.categoryTokens.count) categories to UserDefaults")
         } catch {
             print("❌ Failed to encode selectedApps: \(error)")
         }
@@ -93,10 +93,31 @@ class AppConfigurationStore: ObservableObject {
         // Immediately save for explicit API calls (skip debounce)
         saveSelectedAppsToUserDefaults()
 
-        // Track that user has selected apps
-        if !selection.applicationTokens.isEmpty {
+        // Track that user has selected apps (including categories)
+        if !selection.applicationTokens.isEmpty || !selection.categoryTokens.isEmpty {
             defaults.set(true, forKey: hasSelectedAppsKey)
             userHasSelectedApps = true
+        }
+    }
+
+    /// Re-decode the saved FamilyActivitySelection from UserDefaults.
+    /// Call this after Screen Time authorization is confirmed, since opaque
+    /// tokens may only resolve once the app has active authorization.
+    func reloadSelectedApps() {
+        guard let data = defaults.data(forKey: selectedAppsKey) else {
+            print("ℹ️ reloadSelectedApps: no saved data in UserDefaults")
+            return
+        }
+        do {
+            let decoder = JSONDecoder()
+            isLoadingFromDefaults = true
+            let loadedSelection = try decoder.decode(FamilyActivitySelection.self, from: data)
+            selectedApps = loadedSelection
+            isLoadingFromDefaults = false
+            print("🔄 Reloaded FamilyActivitySelection: \(selectedApps.applicationTokens.count) apps, \(selectedApps.categoryTokens.count) categories")
+        } catch {
+            print("❌ reloadSelectedApps failed to decode: \(error)")
+            isLoadingFromDefaults = false
         }
     }
 
@@ -150,9 +171,11 @@ class AppConfigurationStore: ObservableObject {
 
                 print("✅ Loaded FamilyActivitySelection from UserDefaults")
                 print("   - Application tokens count: \(selectedApps.applicationTokens.count)")
+                print("   - Category tokens count: \(selectedApps.categoryTokens.count)")
 
                 // If tokens are empty but we know user selected apps, it means authorization is needed
-                if selectedApps.applicationTokens.isEmpty && userHasSelectedApps {
+                let allTokensEmpty = selectedApps.applicationTokens.isEmpty && selectedApps.categoryTokens.isEmpty
+                if allTokensEmpty && userHasSelectedApps {
                     print("⚠️ Selection loaded but tokens empty - may need re-authorization")
                 }
             } catch {
@@ -166,9 +189,9 @@ class AppConfigurationStore: ObservableObject {
     }
 
     var hasSelectedApps: Bool {
-        // Check if there are actual tokens OR if user has previously selected apps
+        // Check if there are actual tokens (apps or categories) OR if user has previously selected apps
         // (tokens might be empty temporarily if authorization is pending)
-        !selectedApps.applicationTokens.isEmpty || userHasSelectedApps
+        !selectedApps.applicationTokens.isEmpty || !selectedApps.categoryTokens.isEmpty || userHasSelectedApps
     }
 
     var isTagRegistered: Bool {
