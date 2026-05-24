@@ -20,6 +20,13 @@ struct PresetEditorView: View {
     @State private var cooldownMinutes: Int = 5
     @State private var isEnabled: Bool = false
 
+    // Snapshot of the loaded preset for change detection / discard.
+    @State private var originalName: String = ""
+    @State private var originalSelection: FamilyActivitySelection = FamilyActivitySelection()
+    @State private var originalSchedule: BlockingSchedule?
+    @State private var originalCooldownMinutes: Int = 5
+    @State private var originalIsEnabled: Bool = false
+
     @State private var showPicker = false
     @State private var showCooldown = false
     @State private var showDeleteConfirm = false
@@ -30,7 +37,6 @@ struct PresetEditorView: View {
             Section("Name") {
                 TextField("Preset name", text: $name)
                     .textInputAutocapitalization(.words)
-                    .onChange(of: name) { _ in commit() }
             }
 
             Section("Apps") {
@@ -52,13 +58,7 @@ struct PresetEditorView: View {
 
             Section("Schedule") {
                 NavigationLink {
-                    ScheduleEditorView(schedule: Binding(
-                        get: { schedule },
-                        set: { newValue in
-                            schedule = newValue
-                            commit()
-                        }
-                    ))
+                    ScheduleEditorView(schedule: $schedule)
                 } label: {
                     HStack {
                         Image(systemName: "clock")
@@ -69,16 +69,21 @@ struct PresetEditorView: View {
                 }
 
                 if schedule != nil {
-                    Stepper(value: $cooldownMinutes, in: 0...60, step: 1) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Cooldown")
-                                .foregroundColor(ArtNouveauTheme.label)
-                            Text("\(cooldownMinutes) min wait to disable early")
-                                .font(.system(.caption, design: .default))
-                                .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Cooldown")
+                            .foregroundColor(ArtNouveauTheme.label)
+                        Text(cooldownSubtitle)
+                            .font(.system(.caption, design: .default))
+                            .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                        Picker("Cooldown", selection: $cooldownMinutes) {
+                            ForEach(Self.cooldownOptions, id: \.self) { minutes in
+                                Text(Self.cooldownLabel(minutes)).tag(minutes)
+                            }
                         }
+                        .pickerStyle(.wheel)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 120)
                     }
-                    .onChange(of: cooldownMinutes) { _ in commit() }
                 }
             }
 
@@ -86,16 +91,6 @@ struct PresetEditorView: View {
                 Section("Manual block") {
                     Toggle("Block apps now", isOn: $isEnabled)
                         .tint(ArtNouveauTheme.primary)
-                        .onChange(of: isEnabled) { newValue in
-                            commit()
-                            if newValue {
-                                if let p = presetStore.preset(id: presetID) {
-                                    screenTimeManager.applyPresetShield(p)
-                                }
-                            } else {
-                                screenTimeManager.clearPresetShield(id: presetID)
-                            }
-                        }
                 }
             }
 
@@ -105,13 +100,15 @@ struct PresetEditorView: View {
                         showCooldown = true
                     } label: {
                         HStack(spacing: 10) {
-                            Image(systemName: "hourglass")
-                            Text("Disable now (cooldown)")
+                            Image(systemName: cooldownMinutes == 0 ? "lock.open" : "hourglass")
+                            Text(cooldownMinutes == 0 ? "Disable now" : "Disable now (cooldown)")
                         }
                         .foregroundColor(ArtNouveauTheme.warning)
                     }
                 } footer: {
-                    Text("This preset is currently inside its scheduled window. Disabling early requires a \(cooldownMinutes)-minute wait.")
+                    Text(cooldownMinutes == 0
+                         ? "This preset is currently inside its scheduled window. Disabling stops the block immediately."
+                         : "This preset is currently inside its scheduled window. Disabling early requires a \(cooldownMinutes)-minute wait.")
                 }
             }
 
@@ -128,13 +125,17 @@ struct PresetEditorView: View {
         }
         .navigationTitle("Edit Preset")
         .navigationBarTitleDisplayMode(.inline)
-        .familyActivityPicker(isPresented: $showPicker, selection: $selection)
-        .onChange(of: selection) { _ in
-            commit()
-            if let p = presetStore.preset(id: presetID) {
-                screenTimeManager.updatePresetShieldIfActive(p)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button("Cancel") { dismiss() }
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Save") { save() }
+                    .fontWeight(.semibold)
+                    .disabled(!hasChanges)
             }
         }
+        .familyActivityPicker(isPresented: $showPicker, selection: $selection)
         .sheet(isPresented: $showCooldown) {
             CooldownView(presetID: presetID, isPresented: $showCooldown)
         }
@@ -148,6 +149,18 @@ struct PresetEditorView: View {
     }
 
     // MARK: - Helpers
+
+    static let cooldownOptions: [Int] = [0, 1, 2, 3, 5, 10, 15, 20, 30, 45, 60]
+
+    static func cooldownLabel(_ minutes: Int) -> String {
+        minutes == 0 ? "None" : "\(minutes) min"
+    }
+
+    private var cooldownSubtitle: String {
+        cooldownMinutes == 0
+            ? "No wait — can disable any time"
+            : "\(cooldownMinutes) min wait to disable early"
+    }
 
     private var appsLabel: String {
         let appCount = selection.applicationTokens.count
@@ -163,19 +176,41 @@ struct PresetEditorView: View {
         schedulingManager.activeScheduledPresetIDs.contains(presetID)
     }
 
+    private var hasChanges: Bool {
+        guard hasLoaded else { return false }
+        return name != originalName
+            || selection.applicationTokens != originalSelection.applicationTokens
+            || selection.categoryTokens != originalSelection.categoryTokens
+            || selection.webDomainTokens != originalSelection.webDomainTokens
+            || schedule != originalSchedule
+            || cooldownMinutes != originalCooldownMinutes
+            || isEnabled != originalIsEnabled
+    }
+
     private func loadIfNeeded() {
         guard !hasLoaded, let preset = presetStore.preset(id: presetID) else { return }
         name = preset.name
         selection = preset.selection
         schedule = preset.schedule
-        cooldownMinutes = preset.cooldownMinutes
+        cooldownMinutes = Self.cooldownOptions.min(by: {
+            abs($0 - preset.cooldownMinutes) < abs($1 - preset.cooldownMinutes)
+        }) ?? preset.cooldownMinutes
         isEnabled = preset.isEnabled
+
+        originalName = name
+        originalSelection = selection
+        originalSchedule = schedule
+        originalCooldownMinutes = cooldownMinutes
+        originalIsEnabled = isEnabled
+
         hasLoaded = true
     }
 
-    private func commit() {
+    private func save() {
         guard hasLoaded, var preset = presetStore.preset(id: presetID) else { return }
         let prevSchedule = preset.schedule
+        let prevEnabled = preset.isEnabled
+
         preset.name = name.isEmpty ? "Untitled" : name
         preset.selection = selection
         preset.schedule = schedule
@@ -186,6 +221,23 @@ struct PresetEditorView: View {
         if prevSchedule != schedule {
             schedulingManager.applySchedule(for: preset)
         }
+
+        // Manual-block side effects only matter when there's no schedule.
+        if schedule == nil {
+            if isEnabled && !prevEnabled {
+                screenTimeManager.applyPresetShield(preset)
+            } else if !isEnabled && prevEnabled {
+                screenTimeManager.clearPresetShield(id: presetID)
+            } else if isEnabled {
+                // Selection or other fields may have changed while enabled.
+                screenTimeManager.updatePresetShieldIfActive(preset)
+            }
+        } else if isScheduledActive {
+            // Selection changed mid-window — refresh the live shield.
+            screenTimeManager.updatePresetShieldIfActive(preset)
+        }
+
+        dismiss()
     }
 
     private func deletePreset() {
