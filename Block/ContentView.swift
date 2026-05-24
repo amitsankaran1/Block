@@ -26,6 +26,20 @@ struct ContentView: View {
         return presetStore.presets.filter { ids.contains($0.id) }
     }
 
+    private var hasUsablePreset: Bool {
+        presetStore.presets.contains { preset in
+            !preset.selection.applicationTokens.isEmpty || !preset.selection.categoryTokens.isEmpty
+        }
+    }
+
+    private var isTagFlowReady: Bool {
+        configStore.isTagRegistered && configStore.hasSelectedApps
+    }
+
+    private var isConfigured: Bool {
+        isTagFlowReady || hasUsablePreset
+    }
+
     var body: some View {
         NavigationView {
             ZStack {
@@ -154,7 +168,7 @@ struct ContentView: View {
 
                     // Main action area - centered
                     VStack {
-                        if configStore.isTagRegistered && configStore.hasSelectedApps {
+                        if isTagFlowReady {
                             if nfcManager.isScanning {
                                 ArtNouveauCard(shadow: ArtNouveauTheme.shadowLarge) {
                                     VStack(spacing: 28) {
@@ -225,7 +239,7 @@ struct ContentView: View {
                                 .buttonStyle(ScaleButtonStyle())
                                 .padding(.horizontal, 24)
                             }
-                        } else {
+                        } else if !isConfigured {
                             // Setup required card - modern design
                             ArtNouveauCard(shadow: ArtNouveauTheme.shadowLarge) {
                                 VStack(spacing: 24) {
