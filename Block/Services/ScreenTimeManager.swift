@@ -21,8 +21,11 @@ class ScreenTimeManager: ObservableObject {
     @Published var authorizationStatus: AuthorizationStatus = .notDetermined
 
     private let store = ManagedSettingsStore()
+    private let tagFlowCategoriesStore = ManagedSettingsStore(
+        named: ManagedSettingsStore.Name(rawValue: "tagflow.cats")
+    )
     private let configStore = AppConfigurationStore.shared
-    private var presetStores: [UUID: ManagedSettingsStore] = [:]
+    private var presetStores: [UUID: (apps: ManagedSettingsStore, categories: ManagedSettingsStore)] = [:]
 
     private init() {
         // Check authorization status multiple times to ensure we catch it when iOS is ready
@@ -52,9 +55,7 @@ class ScreenTimeManager: ObservableObject {
 
         if configStore.isBlockingEnabled && hasAppsToBlock {
             print("✅ Restoring blocking for \(selection.applicationTokens.count) apps, \(selection.categoryTokens.count) categories")
-            store.shield.applications = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
-            store.shield.applicationCategories = selection.categoryTokens.isEmpty ? nil : .specific(selection.categoryTokens)
-            store.shield.webDomains = selection.webDomainTokens.isEmpty ? nil : selection.webDomainTokens
+            BlockingActuator.apply(selection: selection, appsStore: store, categoriesStore: tagFlowCategoriesStore)
         } else {
             print("ℹ️ No blocking to restore (enabled: \(configStore.isBlockingEnabled), apps: \(selection.applicationTokens.count), categories: \(selection.categoryTokens.count))")
         }
@@ -103,15 +104,10 @@ class ScreenTimeManager: ObservableObject {
             return
         }
 
-        // Apply blocking - setting applications/categories will show default shield
-        // Custom shield configuration requires a separate app extension
-        // Note: FamilyActivitySelection contains three types of tokens:
-        // - applicationTokens: individual apps
-        // - categoryTokens: app categories (used when selecting "all apps" or bulk selections)
-        // - webDomainTokens: web domains
-        store.shield.applications = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
-        store.shield.applicationCategories = selection.categoryTokens.isEmpty ? nil : .specific(selection.categoryTokens)
-        store.shield.webDomains = selection.webDomainTokens.isEmpty ? nil : selection.webDomainTokens
+        // Apps and categories are split across two stores — iOS unions shields across stores,
+        // and the combined-store layout was observed to drop the individual-apps shield when
+        // categories were also set. See `BlockingActuator.apply`.
+        BlockingActuator.apply(selection: selection, appsStore: store, categoriesStore: tagFlowCategoriesStore)
 
         print("🛡️ Enabled blocking: \(selection.applicationTokens.count) apps, \(selection.categoryTokens.count) categories, \(selection.webDomainTokens.count) domains")
 
@@ -123,6 +119,7 @@ class ScreenTimeManager: ObservableObject {
 
     func disableBlocking() {
         store.clearAllSettings()
+        tagFlowCategoriesStore.clearAllSettings()
         configStore.setBlockingEnabled(false)
         #if DEBUG
         DebugLog.shared.log(.screenTime, "disableBlocking cleared default store")
@@ -145,15 +142,17 @@ class ScreenTimeManager: ObservableObject {
 
     // MARK: - Preset flow (named stores)
 
-    private func presetStore(for id: UUID) -> ManagedSettingsStore {
+    private func presetStores(for id: UUID) -> (apps: ManagedSettingsStore, categories: ManagedSettingsStore) {
         if let existing = presetStores[id] { return existing }
-        let storeName = ManagedSettingsStore.Name(rawValue: "preset.\(id.uuidString)")
-        let store = ManagedSettingsStore(named: storeName)
-        presetStores[id] = store
-        return store
+        let pair = (
+            apps: ManagedSettingsStore(named: BlockingActuator.appsStoreName(for: id)),
+            categories: ManagedSettingsStore(named: BlockingActuator.categoriesStoreName(for: id))
+        )
+        presetStores[id] = pair
+        return pair
     }
 
-    /// Apply a preset's shield to its named store. Safe to call when authorization is pending —
+    /// Apply a preset's shield to its named stores. Safe to call when authorization is pending —
     /// it will be restored later via `restoreBlockingIfNeeded`.
     func applyPresetShield(_ preset: BlockingPreset) {
         guard authorizationStatus == .approved else {
@@ -162,15 +161,8 @@ class ScreenTimeManager: ObservableObject {
             #endif
             return
         }
-        let store = presetStore(for: preset.id)
-        store.shield.applications = preset.selection.applicationTokens.isEmpty
-            ? nil
-            : preset.selection.applicationTokens
-        if !preset.selection.categoryTokens.isEmpty {
-            store.shield.applicationCategories = .specific(preset.selection.categoryTokens)
-        } else {
-            store.shield.applicationCategories = nil
-        }
+        let pair = presetStores(for: preset.id)
+        BlockingActuator.apply(selection: preset.selection, appsStore: pair.apps, categoriesStore: pair.categories)
         #if DEBUG
         DebugLog.shared.log(.screenTime, "applyPresetShield(\(preset.name)): \(preset.selection.applicationTokens.count) apps, \(preset.selection.categoryTokens.count) categories")
         #endif
@@ -178,8 +170,9 @@ class ScreenTimeManager: ObservableObject {
 
     /// Clear a preset's shield (cooldown completion or manual disable).
     func clearPresetShield(id: UUID) {
-        let store = presetStore(for: id)
-        store.clearAllSettings()
+        let pair = presetStores(for: id)
+        pair.apps.clearAllSettings()
+        pair.categories.clearAllSettings()
         #if DEBUG
         DebugLog.shared.log(.screenTime, "clearPresetShield for \(id.uuidString.prefix(8))")
         #endif
