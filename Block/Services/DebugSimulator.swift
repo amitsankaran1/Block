@@ -104,7 +104,8 @@ enum DebugSimulator {
     static func resetAllRuntime() {
         let suite = SharedDefaults.suite
         for preset in PresetStore.shared.presets {
-            ManagedSettingsStore(named: BlockingActuator.storeName(for: preset.id)).clearAllSettings()
+            ManagedSettingsStore(named: BlockingActuator.appsStoreName(for: preset.id)).clearAllSettings()
+            ManagedSettingsStore(named: BlockingActuator.categoriesStoreName(for: preset.id)).clearAllSettings()
             suite.removeObject(forKey: SharedDefaults.Keys.running(presetID: preset.id))
             suite.removeObject(forKey: SharedDefaults.Keys.cooldownEnd(presetID: preset.id))
             if preset.isEnabled {

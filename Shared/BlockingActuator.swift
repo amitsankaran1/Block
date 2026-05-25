@@ -27,14 +27,11 @@ enum BlockingActuator {
             guard schedule.weekdays.contains(weekday) else { return false }
         }
 
-        let store = ManagedSettingsStore(named: storeName(for: presetID))
-
-        if !preset.selection.applicationTokens.isEmpty {
-            store.shield.applications = preset.selection.applicationTokens
-        }
-        if !preset.selection.categoryTokens.isEmpty {
-            store.shield.applicationCategories = .specific(preset.selection.categoryTokens)
-        }
+        apply(
+            selection: preset.selection,
+            appsStore: ManagedSettingsStore(named: appsStoreName(for: presetID)),
+            categoriesStore: ManagedSettingsStore(named: categoriesStoreName(for: presetID))
+        )
 
         SharedDefaults.suite.set(true, forKey: SharedDefaults.Keys.running(presetID: presetID))
         return true
@@ -42,14 +39,41 @@ enum BlockingActuator {
 
     /// Clear the preset's shield and running flag. Mirrors `intervalDidEnd`.
     static func end(presetID: UUID) {
-        ManagedSettingsStore(named: storeName(for: presetID)).clearAllSettings()
+        ManagedSettingsStore(named: appsStoreName(for: presetID)).clearAllSettings()
+        ManagedSettingsStore(named: categoriesStoreName(for: presetID)).clearAllSettings()
         SharedDefaults.suite.removeObject(forKey: SharedDefaults.Keys.running(presetID: presetID))
+    }
+
+    /// Apply a selection across two physical stores. iOS unions shields across stores;
+    /// setting `shield.applications` and `shield.applicationCategories = .specific(...)` on
+    /// the *same* store has been observed to drop the individual-apps shield, so we keep
+    /// them on separate stores. Each property is written unconditionally (nil when empty)
+    /// to clear stale state left by the prior single-store layout.
+    static func apply(
+        selection: FamilyActivitySelection,
+        appsStore: ManagedSettingsStore,
+        categoriesStore: ManagedSettingsStore
+    ) {
+        appsStore.shield.applications = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
+        appsStore.shield.applicationCategories = nil
+        appsStore.shield.webDomains = selection.webDomainTokens.isEmpty ? nil : selection.webDomainTokens
+
+        categoriesStore.shield.applications = nil
+        categoriesStore.shield.applicationCategories = selection.categoryTokens.isEmpty
+            ? nil
+            : .specific(selection.categoryTokens)
     }
 
     // MARK: - Helpers
 
-    static func storeName(for presetID: UUID) -> ManagedSettingsStore.Name {
+    /// Backed by `preset.<UUID>` for backward compatibility — holds `shield.applications`.
+    static func appsStoreName(for presetID: UUID) -> ManagedSettingsStore.Name {
         ManagedSettingsStore.Name(rawValue: "preset.\(presetID.uuidString)")
+    }
+
+    /// Companion store holding `shield.applicationCategories`.
+    static func categoriesStoreName(for presetID: UUID) -> ManagedSettingsStore.Name {
+        ManagedSettingsStore.Name(rawValue: "preset.\(presetID.uuidString).cats")
     }
 
     private static func loadPreset(id: UUID) -> BlockingPreset? {
