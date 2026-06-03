@@ -218,12 +218,7 @@ struct DebugMenuView: View {
     }
 
     private func authString(_ status: AuthorizationStatus) -> String {
-        switch status {
-        case .notDetermined: return "notDetermined"
-        case .denied:        return "denied"
-        case .approved:      return "approved"
-        @unknown default:    return "unknown"
-        }
+        String(describing: status)
     }
 }
 

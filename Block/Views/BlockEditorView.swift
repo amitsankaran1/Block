@@ -188,10 +188,10 @@ struct BlockEditorView: View {
         if groupIDs.contains(id) { groupIDs.remove(id) } else { groupIDs.insert(id) }
     }
 
-    static func minutesLabel(_ m: Int) -> String {
+    nonisolated static func minutesLabel(_ m: Int) -> String {
         m < 60 ? "\(m) min" : (m % 60 == 0 ? "\(m / 60) hr" : "\(m / 60) hr \(m % 60) min")
     }
-    static func durationLabel(_ m: Int) -> String {
+    nonisolated static func durationLabel(_ m: Int) -> String {
         m < 60 ? "\(m) min" : (m % 60 == 0 ? "\(m / 60) hour\(m / 60 == 1 ? "" : "s")" : "\(m / 60) hr \(m % 60) min")
     }
 

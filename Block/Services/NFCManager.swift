@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import CoreNFC
+@preconcurrency import CoreNFC
 import Combine
 
 @MainActor
@@ -129,10 +129,15 @@ extension NFCManager: NFCTagReaderSessionDelegate {
     }
 
     nonisolated func tagReaderSession(_ session: NFCTagReaderSession, didDetect tags: [NFCTag]) {
-        guard let tag = tags.first else {
+        guard let firstTag = tags.first else {
             return
         }
 
+        // CoreNFC's connect completion is @Sendable but NFCTagReaderSession/NFCTag
+        // aren't Sendable; these bindings opt out of the capture check (the
+        // delegate guarantees single-threaded use here).
+        nonisolated(unsafe) let session = session
+        nonisolated(unsafe) let tag = firstTag
         session.connect(to: tag) { error in
             if error != nil {
                 session.invalidate(errorMessage: "Connection failed. Please try again.")
