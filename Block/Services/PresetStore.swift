@@ -81,6 +81,14 @@ class PresetStore: ObservableObject {
         update(p)
     }
 
+    /// Set (or clear, with `limitMinutes: nil`) the usage budget and lockout duration.
+    func setUsageLimit(id: UUID, limitMinutes: Int?, lockMinutes: Int) {
+        guard var p = preset(id: id) else { return }
+        p.usageLimitMinutes = limitMinutes
+        p.usageLockMinutes = max(1, lockMinutes)
+        update(p)
+    }
+
     /// IDs of presets currently inside an active scheduled window
     /// (set by the BlockMonitor extension).
     var activeScheduledPresetIDs: Set<UUID> {

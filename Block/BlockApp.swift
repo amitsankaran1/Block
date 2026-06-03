@@ -22,6 +22,8 @@ struct BlockApp: App {
                 .task {
                     _ = PresetStore.shared
                     SchedulingManager.shared.reapplyAllSchedules()
+                    UsageLimitManager.shared.reapplyAllUsageLimits()
+                    UsageLimitManager.shared.reconcileExpiredLocks()
                     CooldownManager.shared.restoreActiveCooldownsIfAny()
                     #if DEBUG
                     TestHarness.seedDemoStateIfRequested()

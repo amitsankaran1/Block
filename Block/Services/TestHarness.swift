@@ -71,13 +71,28 @@ enum TestHarness {
                                         weekdays: [1,7])
         )
 
+        // 4. Usage-limited preset (no schedule) — caps cumulative use, then locks.
+        let doomscroll = PresetStore.shared.create(name: "Doomscroll guard")
+        if var d = PresetStore.shared.preset(id: doomscroll.id) {
+            d.usageLimitMinutes = 30
+            d.usageLockMinutes = 180
+            d.cooldownMinutes = 5
+            PresetStore.shared.update(d)
+        }
+        // Also give the work preset a usage limit so the editor shows it populated.
+        PresetStore.shared.setUsageLimit(id: work.id, limitMinutes: 60, lockMinutes: 120)
+
         PresetStore.shared.flush()
 
         // Mark the work preset as in an active scheduled window so home shows the badge.
         BlockingActuator.start(presetID: work.id)
+        // Put the usage-limited preset into an active lockout so home shows the
+        // "Usage locked" capsule and we exercise the lock state machine.
+        DebugSimulator.fireUsageThreshold(presetID: doomscroll.id)
         SchedulingManager.shared.refresh()
+        UsageLimitManager.shared.refresh()
 
-        print("🌱 Seeded demo state: 3 presets, 1 active, tag=demo-tag-04A3B2C1")
+        print("🌱 Seeded demo state: 4 presets, 1 scheduled + 1 usage-locked, tag=demo-tag-04A3B2C1")
     }
 
     struct CaseResult: Codable {

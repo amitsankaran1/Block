@@ -12,6 +12,7 @@ struct PresetEditorView: View {
     @StateObject private var presetStore = PresetStore.shared
     @StateObject private var schedulingManager = SchedulingManager.shared
     @StateObject private var screenTimeManager = ScreenTimeManager.shared
+    @StateObject private var usageLimitManager = UsageLimitManager.shared
     @Environment(\.dismiss) private var dismiss
 
     @State private var name: String = ""
@@ -19,6 +20,9 @@ struct PresetEditorView: View {
     @State private var schedule: BlockingSchedule?
     @State private var cooldownMinutes: Int = 5
     @State private var isEnabled: Bool = false
+    @State private var usageLimitEnabled: Bool = false
+    @State private var usageLimitMinutes: Int = 30
+    @State private var usageLockMinutes: Int = 180
 
     // Snapshot of the loaded preset for change detection / discard.
     @State private var originalName: String = ""
@@ -26,6 +30,9 @@ struct PresetEditorView: View {
     @State private var originalSchedule: BlockingSchedule?
     @State private var originalCooldownMinutes: Int = 5
     @State private var originalIsEnabled: Bool = false
+    @State private var originalUsageLimitEnabled: Bool = false
+    @State private var originalUsageLimitMinutes: Int = 30
+    @State private var originalUsageLockMinutes: Int = 180
 
     @State private var showPicker = false
     @State private var showCooldown = false
@@ -87,6 +94,51 @@ struct PresetEditorView: View {
                 }
             }
 
+            Section {
+                Toggle("Limit daily usage", isOn: $usageLimitEnabled)
+                    .tint(ArtNouveauTheme.primary)
+
+                if usageLimitEnabled {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Time limit")
+                            .foregroundColor(ArtNouveauTheme.label)
+                        Text("Lock these apps after \(Self.minutesLabel(usageLimitMinutes)) of use")
+                            .font(.system(.caption, design: .default))
+                            .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                        Picker("Time limit", selection: $usageLimitMinutes) {
+                            ForEach(Self.usageLimitOptions, id: \.self) { minutes in
+                                Text(Self.minutesLabel(minutes)).tag(minutes)
+                            }
+                        }
+                        .pickerStyle(.wheel)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 120)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Lockout duration")
+                            .foregroundColor(ArtNouveauTheme.label)
+                        Text("Stays locked for \(Self.durationLabel(usageLockMinutes))")
+                            .font(.system(.caption, design: .default))
+                            .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                        Picker("Lockout duration", selection: $usageLockMinutes) {
+                            ForEach(Self.usageLockOptions, id: \.self) { minutes in
+                                Text(Self.durationLabel(minutes)).tag(minutes)
+                            }
+                        }
+                        .pickerStyle(.wheel)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 120)
+                    }
+                }
+            } header: {
+                Text("Usage limit")
+            } footer: {
+                Text(usageLimitEnabled
+                     ? "Using these apps for \(Self.minutesLabel(usageLimitMinutes)) total locks them for \(Self.durationLabel(usageLockMinutes)). You can release early after the cooldown. Resets after each lockout and daily."
+                     : "Cap cumulative time across these apps, then auto-lock them — even outside a schedule.")
+            }
+
             if schedule == nil {
                 Section("Manual block") {
                     Toggle("Block apps now", isOn: $isEnabled)
@@ -94,7 +146,7 @@ struct PresetEditorView: View {
                 }
             }
 
-            if isScheduledActive {
+            if isScheduledActive || isUsageLocked {
                 Section {
                     Button {
                         showCooldown = true
@@ -106,9 +158,7 @@ struct PresetEditorView: View {
                         .foregroundColor(ArtNouveauTheme.warning)
                     }
                 } footer: {
-                    Text(cooldownMinutes == 0
-                         ? "This preset is currently inside its scheduled window. Disabling stops the block immediately."
-                         : "This preset is currently inside its scheduled window. Disabling early requires a \(cooldownMinutes)-minute wait.")
+                    Text(disableNowFooter)
                 }
             }
 
@@ -151,9 +201,41 @@ struct PresetEditorView: View {
     // MARK: - Helpers
 
     static let cooldownOptions: [Int] = [0, 1, 2, 3, 5, 10, 15, 20, 30, 45, 60]
+    static let usageLimitOptions: [Int] = [15, 30, 45, 60, 90, 120]
+    static let usageLockOptions: [Int] = [30, 60, 120, 180, 240, 360]
 
     static func cooldownLabel(_ minutes: Int) -> String {
         minutes == 0 ? "None" : "\(minutes) min"
+    }
+
+    /// "45 min" / "1 hr" / "1 hr 30 min" for usage budgets.
+    static func minutesLabel(_ minutes: Int) -> String {
+        if minutes < 60 { return "\(minutes) min" }
+        let h = minutes / 60, m = minutes % 60
+        return m == 0 ? "\(h) hr" : "\(h) hr \(m) min"
+    }
+
+    /// Lockout durations read more naturally as hours past 60 min.
+    static func durationLabel(_ minutes: Int) -> String {
+        if minutes < 60 { return "\(minutes) min" }
+        let h = minutes / 60, m = minutes % 60
+        if m == 0 { return "\(h) hour\(h == 1 ? "" : "s")" }
+        return "\(h) hr \(m) min"
+    }
+
+    private var isUsageLocked: Bool {
+        usageLimitManager.activeUsageLockPresetIDs.contains(presetID)
+    }
+
+    private var disableNowFooter: String {
+        if isUsageLocked {
+            return cooldownMinutes == 0
+                ? "These apps are usage-locked. Disabling releases the lock immediately and resets the budget."
+                : "These apps are usage-locked. Releasing early requires a \(cooldownMinutes)-minute wait, then the budget resets."
+        }
+        return cooldownMinutes == 0
+            ? "This preset is currently inside its scheduled window. Disabling stops the block immediately."
+            : "This preset is currently inside its scheduled window. Disabling early requires a \(cooldownMinutes)-minute wait."
     }
 
     private var cooldownSubtitle: String {
@@ -185,6 +267,9 @@ struct PresetEditorView: View {
             || schedule != originalSchedule
             || cooldownMinutes != originalCooldownMinutes
             || isEnabled != originalIsEnabled
+            || usageLimitEnabled != originalUsageLimitEnabled
+            || usageLimitMinutes != originalUsageLimitMinutes
+            || usageLockMinutes != originalUsageLockMinutes
     }
 
     private func loadIfNeeded() {
@@ -197,11 +282,24 @@ struct PresetEditorView: View {
         }) ?? preset.cooldownMinutes
         isEnabled = preset.isEnabled
 
+        usageLimitEnabled = preset.usageLimitMinutes != nil
+        if let limit = preset.usageLimitMinutes {
+            usageLimitMinutes = Self.usageLimitOptions.min(by: {
+                abs($0 - limit) < abs($1 - limit)
+            }) ?? limit
+        }
+        usageLockMinutes = Self.usageLockOptions.min(by: {
+            abs($0 - preset.usageLockMinutes) < abs($1 - preset.usageLockMinutes)
+        }) ?? preset.usageLockMinutes
+
         originalName = name
         originalSelection = selection
         originalSchedule = schedule
         originalCooldownMinutes = cooldownMinutes
         originalIsEnabled = isEnabled
+        originalUsageLimitEnabled = usageLimitEnabled
+        originalUsageLimitMinutes = usageLimitMinutes
+        originalUsageLockMinutes = usageLockMinutes
 
         hasLoaded = true
     }
@@ -210,16 +308,37 @@ struct PresetEditorView: View {
         guard hasLoaded, var preset = presetStore.preset(id: presetID) else { return }
         let prevSchedule = preset.schedule
         let prevEnabled = preset.isEnabled
+        let prevUsageLimit = preset.usageLimitMinutes
+        let prevUsageLock = preset.usageLockMinutes
+        let prevSelectionApps = preset.selection.applicationTokens
+        let prevSelectionCats = preset.selection.categoryTokens
+        let prevSelectionWeb = preset.selection.webDomainTokens
 
         preset.name = name.isEmpty ? "Untitled" : name
         preset.selection = selection
         preset.schedule = schedule
         preset.cooldownMinutes = cooldownMinutes
         preset.isEnabled = isEnabled
+        let newUsageLimit = usageLimitEnabled ? usageLimitMinutes : nil
+        preset.usageLimitMinutes = newUsageLimit
+        preset.usageLockMinutes = usageLockMinutes
         presetStore.update(preset)
 
         if prevSchedule != schedule {
             schedulingManager.applySchedule(for: preset)
+        }
+
+        // Re-register usage monitoring if the limit, lockout, or the monitored
+        // selection changed.
+        let selectionChanged = prevSelectionApps != selection.applicationTokens
+            || prevSelectionCats != selection.categoryTokens
+            || prevSelectionWeb != selection.webDomainTokens
+        if newUsageLimit != prevUsageLimit || usageLockMinutes != prevUsageLock || selectionChanged {
+            if newUsageLimit == nil {
+                usageLimitManager.removeUsageLimit(for: preset)
+            } else {
+                usageLimitManager.applyUsageLimit(for: preset, forceReset: true)
+            }
         }
 
         // Manual-block side effects only matter when there's no schedule.
@@ -243,6 +362,7 @@ struct PresetEditorView: View {
     private func deletePreset() {
         if let p = presetStore.preset(id: presetID) {
             schedulingManager.removeSchedule(for: p)
+            usageLimitManager.removeUsageLimit(for: p)
         }
         screenTimeManager.clearPresetShield(id: presetID)
         presetStore.delete(id: presetID)
