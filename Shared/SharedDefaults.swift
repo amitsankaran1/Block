@@ -20,16 +20,23 @@ enum SharedDefaults {
     }()
 
     enum Keys {
+        /// Legacy v1 presets — read once by the migration, then superseded by `blocks`/`groups`.
         static let presets = "presets.v1"
+        /// Reusable app lists ([AppGroup]) and blocking rules ([BlockRule]).
+        static let groups = "groups.v1"
+        static let blocks = "blocks.v2"
+        /// Set once the one-time presets.v1 → groups+blocks migration has run.
+        static let migratedToBlocksV2 = "migratedToBlocksV2"
+
         static let selectedApps = "selectedApps"
         static let hasSelectedApps = "hasSelectedApps"
         static let registeredTag = "registeredTagIdentifier"
         static let blockingEnabled = "isBlockingEnabled"
 
-        static func cooldownEnd(presetID: UUID) -> String { "cooldown.\(presetID.uuidString)" }
-        static func running(presetID: UUID) -> String { "running.\(presetID.uuidString)" }
+        static func cooldownEnd(blockID: UUID) -> String { "cooldown.\(blockID.uuidString)" }
+        static func running(blockID: UUID) -> String { "running.\(blockID.uuidString)" }
         /// `Date` when the current usage-limit lockout auto-expires. Presence of a
-        /// future date is the source of truth for "this preset is usage-locked".
-        static func usageLockEnd(presetID: UUID) -> String { "usagelock.\(presetID.uuidString)" }
+        /// future date is the source of truth for "this block is usage-locked".
+        static func usageLockEnd(blockID: UUID) -> String { "usagelock.\(blockID.uuidString)" }
     }
 }

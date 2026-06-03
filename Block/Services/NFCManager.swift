@@ -31,26 +31,42 @@ class NFCManager: NSObject, ObservableObject {
     func setupDefaultCallback() {
         onTagScanned = { tagId in
             let configStore = AppConfigurationStore.shared
-            let screenTimeManager = ScreenTimeManager.shared
-
-            print("🔵 NFCManager: Tag scanned callback called with tagId: \(tagId)")
-
             if let registeredTag = configStore.registeredTagIdentifier {
-                // Tag already registered - toggle blocking
                 if tagId == registeredTag {
-                    print("✅ Matched registered tag - toggling blocking")
-                    screenTimeManager.toggleBlocking(for: configStore.selectedApps)
+                    NFCManager.shared.toggleTagBlocks()
                 } else {
                     print("❌ Scanned tag doesn't match registered tag")
-                    print("   Scanned: \(tagId)")
-                    print("   Registered: \(registeredTag)")
                 }
             } else {
-                // No tag registered - register this tag
-                print("📝 No tag registered - registering tag: \(tagId)")
+                // No tag registered yet — register this one.
                 configStore.registerTag(identifier: tagId)
             }
         }
+    }
+
+    /// Tapping the registered tag toggles every `.tag`-type block together: if any
+    /// is currently on, turn them all off; otherwise turn them all on.
+    func toggleTagBlocks() {
+        let tagBlocks = BlockStore.shared.blocks(ofType: .tag)
+        guard !tagBlocks.isEmpty else {
+            #if DEBUG
+            DebugLog.shared.log(.nfc, "tag tapped but no tag blocks configured")
+            #endif
+            return
+        }
+        let anyOn = tagBlocks.contains { $0.isEnabled }
+        for block in tagBlocks {
+            BlockStore.shared.setEnabled(id: block.id, enabled: !anyOn)
+            if anyOn {
+                ScreenTimeManager.shared.clearBlockShield(id: block.id)
+            } else {
+                ScreenTimeManager.shared.applyBlockShield(block)
+            }
+        }
+        BlockStore.shared.flush()
+        #if DEBUG
+        DebugLog.shared.log(.nfc, "toggled \(tagBlocks.count) tag block(s) → \(anyOn ? "off" : "on")")
+        #endif
     }
 
     func startScanning() {
