@@ -42,9 +42,14 @@ struct ContentView: View {
         return "\(preset.name) · \(suffix)"
     }
 
-    private var hasUsablePreset: Bool {
+    /// A preset counts as "set up" once it has apps/categories selected, a
+    /// schedule, or a usage limit — i.e. any mechanic that can block something.
+    private var hasConfiguredPreset: Bool {
         presetStore.presets.contains { preset in
-            !preset.selection.applicationTokens.isEmpty || !preset.selection.categoryTokens.isEmpty
+            !preset.selection.applicationTokens.isEmpty
+                || !preset.selection.categoryTokens.isEmpty
+                || preset.schedule != nil
+                || preset.usageLimitMinutes != nil
         }
     }
 
@@ -52,8 +57,11 @@ struct ContentView: View {
         configStore.isTagRegistered && configStore.hasSelectedApps
     }
 
+    /// The "Setup Required" prompt is for a cold-start app only. Hide it once any
+    /// blocking method is set up (tag flow, a configured preset) or anything is
+    /// actively blocking — not just the NFC tag flow.
     private var isConfigured: Bool {
-        isTagFlowReady || hasUsablePreset
+        isTagFlowReady || hasConfiguredPreset || anyShieldActive
     }
 
     var body: some View {
