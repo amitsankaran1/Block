@@ -237,8 +237,8 @@ I am choosing to use my time wisely. These apps distract me from my goals and wa
         checkIfCorrect()
 
         if isCorrect {
-            // Disable blocking
-            screenTimeManager.disableBlocking()
+            // Emergency override — clear every active block.
+            screenTimeManager.disableAllBlocks()
             isPresented = false
         } else {
             showError = true

@@ -12,7 +12,7 @@ import Combine
 import FamilyControls
 
 struct DebugMenuView: View {
-    @StateObject private var presetStore = PresetStore.shared
+    @StateObject private var blockStore = BlockStore.shared
     @StateObject private var schedulingManager = SchedulingManager.shared
     @StateObject private var configStore = AppConfigurationStore.shared
     @StateObject private var screenTimeManager = ScreenTimeManager.shared
@@ -49,10 +49,10 @@ struct DebugMenuView: View {
     private var globalStateSection: some View {
         Section("Global State") {
             row("Screen Time auth", value: authString(snapshot.authorizationStatus))
-            row("Tag-flow blocking", value: snapshot.isTagFlowBlocking ? "ON" : "off")
-            row("Selected apps", value: "\(snapshot.selectedAppCount)")
-            row("Active scheduled presets", value: "\(snapshot.activeScheduledIDs.count)")
-            if let id = snapshot.activeCooldownPresetID {
+            row("App lists", value: "\(snapshot.groupCount)")
+            row("Blocks", value: "\(snapshot.blocks.count)")
+            row("Active scheduled blocks", value: "\(snapshot.activeScheduledIDs.count)")
+            if let id = snapshot.activeCooldownBlockID {
                 row("Active cooldown",
                     value: shortID(id) + " (\(Int(cooldownManager.remaining))s)")
             }
@@ -92,64 +92,65 @@ struct DebugMenuView: View {
         }
     }
 
-    // MARK: - Presets
+    // MARK: - Blocks
 
     @ViewBuilder
     private var presetsSection: some View {
-        if snapshot.presets.isEmpty {
-            Section("Presets") {
-                Text("No presets — create one from Settings.")
+        if snapshot.blocks.isEmpty {
+            Section("Blocks") {
+                Text("No blocks — create one from the Blocks tab.")
                     .foregroundStyle(.secondary)
             }
         } else {
-            ForEach(snapshot.presets) { preset in
-                Section(preset.name) {
-                    presetRows(preset)
+            ForEach(snapshot.blocks) { block in
+                Section("\(block.name) [\(block.type.rawValue)]") {
+                    presetRows(block)
                 }
             }
         }
     }
 
     @ViewBuilder
-    private func presetRows(_ preset: DebugSimulator.PresetSnapshot) -> some View {
-        row("ID", value: shortID(preset.id))
-        row("Apps / Categories", value: "\(preset.appCount) / \(preset.categoryCount)")
-        row("Schedule", value: preset.scheduleSummary ?? "—")
-        row("Manual enabled", value: preset.isEnabled ? "ON" : "off")
-        row("Scheduled running flag", value: preset.isScheduledRunning ? "ON" : "off")
-        row("Cooldown minutes", value: "\(preset.cooldownMinutes)")
-        if let endsAt = preset.cooldownEndsAt {
+    private func presetRows(_ block: DebugSimulator.BlockSnapshot) -> some View {
+        row("ID", value: shortID(block.id))
+        row("Lists", value: block.groupNames.isEmpty ? "—" : block.groupNames.joined(separator: ", "))
+        row("Apps / Categories", value: "\(block.appCount) / \(block.categoryCount)")
+        if block.type == .schedule { row("Schedule", value: block.scheduleSummary ?? "—") }
+        row("Manual enabled", value: block.isEnabled ? "ON" : "off")
+        row("Scheduled running flag", value: block.isScheduledRunning ? "ON" : "off")
+        row("Cooldown minutes", value: "\(block.cooldownMinutes)")
+        if let endsAt = block.cooldownEndsAt {
             let secs = Int(endsAt.timeIntervalSinceNow)
             row("Cooldown ends in", value: secs > 0 ? "\(secs)s" : "expired")
         }
-        row("Usage limit", value: preset.usageLimitMinutes.map { "\($0) min → lock \(preset.usageLockMinutes)m" } ?? "off")
-        if let endsAt = preset.usageLockEndsAt {
+        if block.type == .timer {
+            row("Usage limit", value: block.usageLimitMinutes.map { "\($0) min → lock \(block.usageLockMinutes)m" } ?? "off")
+        }
+        if let endsAt = block.usageLockEndsAt {
             let secs = Int(endsAt.timeIntervalSinceNow)
             row("Usage lock ends in", value: secs > 0 ? "\(secs / 60)m \(secs % 60)s" : "expired")
         }
 
-        Button("Fire interval start now") {
-            DebugSimulator.fireScheduleStart(presetID: preset.id)
-        }
-        Button("Fire interval end now") {
-            DebugSimulator.fireScheduleEnd(presetID: preset.id)
+        if block.type == .schedule {
+            Button("Fire interval start now") { DebugSimulator.fireScheduleStart(blockID: block.id) }
+            Button("Fire interval end now") { DebugSimulator.fireScheduleEnd(blockID: block.id) }
         }
         Button("Start 10s cooldown") {
-            DebugSimulator.startShortCooldown(presetID: preset.id, seconds: 10)
+            DebugSimulator.startShortCooldown(blockID: block.id, seconds: 10)
         }
-        if cooldownManager.activeCooldown?.presetID == preset.id {
+        if cooldownManager.activeCooldown?.blockID == block.id {
             Button("Fast-forward cooldown") {
                 DebugSimulator.expireCooldown()
             }
         }
-        if preset.usageLimitMinutes != nil {
+        if block.type == .timer && block.usageLimitMinutes != nil {
             Button("Fire usage threshold (lock now)") {
-                DebugSimulator.fireUsageThreshold(presetID: preset.id)
+                DebugSimulator.fireUsageThreshold(blockID: block.id)
             }
         }
-        if preset.usageLockEndsAt != nil {
+        if block.usageLockEndsAt != nil {
             Button("Expire usage lock") {
-                DebugSimulator.expireUsageLock(presetID: preset.id)
+                DebugSimulator.expireUsageLock(blockID: block.id)
             }
         }
     }

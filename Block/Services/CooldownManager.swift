@@ -15,7 +15,7 @@ class CooldownManager: ObservableObject {
     static let shared = CooldownManager()
 
     struct ActiveCooldown: Equatable {
-        let presetID: UUID
+        let blockID: UUID
         let endsAt: Date
     }
 
@@ -29,34 +29,34 @@ class CooldownManager: ObservableObject {
     /// Restore unfinished cooldowns from disk.
     /// If the cooldown end-time has already passed, completes it now.
     func restoreActiveCooldownsIfAny() {
-        // Look across all presets — only one cooldown is active at a time
+        // Look across all blocks — only one cooldown is active at a time
         // but we don't track which one is "active" so we scan.
         let now = Date()
-        for preset in PresetStore.shared.presets {
-            let key = SharedDefaults.Keys.cooldownEnd(presetID: preset.id)
+        for block in BlockStore.shared.blocks {
+            let key = SharedDefaults.Keys.cooldownEnd(blockID: block.id)
             guard let endsAt = defaults.object(forKey: key) as? Date else { continue }
             if endsAt > now {
-                activeCooldown = ActiveCooldown(presetID: preset.id, endsAt: endsAt)
+                activeCooldown = ActiveCooldown(blockID: block.id, endsAt: endsAt)
                 startTickTimer()
                 return
             } else {
                 // Cooldown already expired while app was closed — release.
-                completeImmediately(presetID: preset.id)
+                completeImmediately(blockID: block.id)
                 defaults.removeObject(forKey: key)
             }
         }
     }
 
-    /// Start a new cooldown. If one is already active for a different preset, it's cancelled.
-    func start(for presetID: UUID, minutes: Int) {
+    /// Start a new cooldown. If one is already active for a different block, it's cancelled.
+    func start(for blockID: UUID, minutes: Int) {
         cancel()
         let endsAt = Date().addingTimeInterval(TimeInterval(max(0, minutes) * 60))
-        let cooldown = ActiveCooldown(presetID: presetID, endsAt: endsAt)
+        let cooldown = ActiveCooldown(blockID: blockID, endsAt: endsAt)
         activeCooldown = cooldown
-        defaults.set(endsAt, forKey: SharedDefaults.Keys.cooldownEnd(presetID: presetID))
+        defaults.set(endsAt, forKey: SharedDefaults.Keys.cooldownEnd(blockID: blockID))
         startTickTimer()
         #if DEBUG
-        DebugLog.shared.log(.cooldown, "start(\(minutes)m) preset=\(presetID.uuidString.prefix(8)) ends=\(endsAt)")
+        DebugLog.shared.log(.cooldown, "start(\(minutes)m) block=\(blockID.uuidString.prefix(8)) ends=\(endsAt)")
         #endif
 
         // Edge case: zero-minute cooldown completes immediately.
@@ -67,7 +67,7 @@ class CooldownManager: ObservableObject {
 
     func cancel() {
         guard let active = activeCooldown else { return }
-        defaults.removeObject(forKey: SharedDefaults.Keys.cooldownEnd(presetID: active.presetID))
+        defaults.removeObject(forKey: SharedDefaults.Keys.cooldownEnd(blockID: active.blockID))
         activeCooldown = nil
         tickTimer?.invalidate()
         tickTimer = nil
@@ -88,34 +88,35 @@ class CooldownManager: ObservableObject {
     /// The schedule remains registered — the next interval will re-shield.
     func complete() {
         guard let active = activeCooldown else { return }
-        completeImmediately(presetID: active.presetID)
-        defaults.removeObject(forKey: SharedDefaults.Keys.cooldownEnd(presetID: active.presetID))
+        completeImmediately(blockID: active.blockID)
+        defaults.removeObject(forKey: SharedDefaults.Keys.cooldownEnd(blockID: active.blockID))
         activeCooldown = nil
         tickTimer?.invalidate()
         tickTimer = nil
     }
 
-    private func completeImmediately(presetID: UUID) {
+    private func completeImmediately(blockID: UUID) {
         // Note whether this release is ending a usage lockout (vs. a scheduled
         // block) before we clear any state.
         let wasUsageLocked = (defaults.object(
-            forKey: SharedDefaults.Keys.usageLockEnd(presetID: presetID)) as? Date).map { $0 > Date() } ?? false
+            forKey: SharedDefaults.Keys.usageLockEnd(blockID: blockID)) as? Date).map { $0 > Date() } ?? false
 
         // Clear the named store and the running flag.
-        ScreenTimeManager.shared.clearPresetShield(id: presetID)
-        defaults.removeObject(forKey: SharedDefaults.Keys.running(presetID: presetID))
+        ScreenTimeManager.shared.clearBlockShield(id: blockID)
+        defaults.removeObject(forKey: SharedDefaults.Keys.running(blockID: blockID))
 
         // Releasing a usage lockout early: drop the lockout window and start a
         // fresh budget so the limit re-arms.
         if wasUsageLocked {
-            UsageLimitManager.shared.rearmAfterRelease(presetID: presetID)
+            UsageLimitManager.shared.rearmAfterRelease(blockID: blockID)
         }
 
         // Also turn off manual enable so the editor reflects the change.
-        if let preset = PresetStore.shared.preset(id: presetID), preset.isEnabled {
-            PresetStore.shared.setEnabled(id: presetID, enabled: false)
+        if let block = BlockStore.shared.block(id: blockID), block.isEnabled {
+            BlockStore.shared.setEnabled(id: blockID, enabled: false)
         }
         SchedulingManager.shared.refresh()
+        UsageLimitManager.shared.refresh()
     }
 
     private func startTickTimer() {

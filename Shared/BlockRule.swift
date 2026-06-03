@@ -1,6 +1,13 @@
 //
-//  BlockingPreset.swift
+//  BlockRule.swift
 //  Block
+//
+//  A single blocking rule of one type (schedule, timer, or NFC tag) applied to
+//  one or more AppGroups. The effective shield is the union of the referenced
+//  groups' tokens (see BlockResolution). UI label: "Block".
+//
+//  Each block uses its own `ManagedSettingsStore(named: "block.<UUID>")` so
+//  blocks shield independently; iOS unions all stores' shields.
 //
 //  Add target membership to BOTH Block and BlockMonitor targets.
 //
@@ -8,68 +15,70 @@
 import Foundation
 import FamilyControls
 
-/// A named group of apps with optional schedule and cooldown friction.
-///
-/// Each preset uses its own `ManagedSettingsStore(named: "preset.<UUID>")` so multiple
-/// presets shield apps independently. The NFC tag continues to operate on the unnamed
-/// default store; iOS unions all stores' shields, so a scheduled preset's shield is
-/// unaffected by tapping the tag.
-struct BlockingPreset: Identifiable, Codable, Equatable {
+enum BlockType: String, Codable {
+    case schedule   // time-of-day window
+    case timer      // cumulative usage budget → timed lockout
+    case tag        // toggled by tapping the registered NFC tag
+}
+
+struct BlockRule: Identifiable, Codable, Equatable {
     let id: UUID
     var name: String
-    var selection: FamilyActivitySelection
+    var type: BlockType
+    /// Referenced AppGroup ids; effective tokens = union of their selections.
+    var appGroupIDs: [UUID]
+    /// Manual force-on (and the on/off state for `.tag` blocks).
     var isEnabled: Bool
-    var schedule: BlockingSchedule?
+    /// Early-release friction in minutes (schedule + timer blocks).
     var cooldownMinutes: Int
-    /// Cumulative daily usage budget across this preset's apps, in minutes.
-    /// `nil` means the usage-limit mechanic is off. When exceeded, the preset
-    /// locks for `usageLockMinutes`. Resets after each lockout and at midnight.
+    /// When `type == .schedule`.
+    var schedule: BlockingSchedule?
+    /// Cumulative daily usage budget in minutes (when `type == .timer`).
     var usageLimitMinutes: Int?
-    /// How long the preset stays locked once the usage budget is hit, in minutes.
+    /// How long the lockout lasts once the budget is hit (when `type == .timer`).
     var usageLockMinutes: Int
     var createdAt: Date
 
     init(
         id: UUID = UUID(),
         name: String,
-        selection: FamilyActivitySelection = FamilyActivitySelection(),
+        type: BlockType = .schedule,
+        appGroupIDs: [UUID] = [],
         isEnabled: Bool = false,
-        schedule: BlockingSchedule? = nil,
         cooldownMinutes: Int = 5,
+        schedule: BlockingSchedule? = nil,
         usageLimitMinutes: Int? = nil,
         usageLockMinutes: Int = 180,
         createdAt: Date = Date()
     ) {
         self.id = id
         self.name = name
-        self.selection = selection
+        self.type = type
+        self.appGroupIDs = appGroupIDs
         self.isEnabled = isEnabled
-        self.schedule = schedule
         self.cooldownMinutes = cooldownMinutes
+        self.schedule = schedule
         self.usageLimitMinutes = usageLimitMinutes
         self.usageLockMinutes = usageLockMinutes
         self.createdAt = createdAt
     }
 
-    static func == (lhs: BlockingPreset, rhs: BlockingPreset) -> Bool {
-        let scalarsEqual = lhs.id == rhs.id
+    static func == (lhs: BlockRule, rhs: BlockRule) -> Bool {
+        let a = lhs.id == rhs.id
             && lhs.name == rhs.name
+            && lhs.type == rhs.type
             && lhs.isEnabled == rhs.isEnabled
-            && lhs.schedule == rhs.schedule
             && lhs.cooldownMinutes == rhs.cooldownMinutes
+        let b = lhs.schedule == rhs.schedule
             && lhs.usageLimitMinutes == rhs.usageLimitMinutes
             && lhs.usageLockMinutes == rhs.usageLockMinutes
             && lhs.createdAt == rhs.createdAt
-        let selectionEqual = lhs.selection.applicationTokens == rhs.selection.applicationTokens
-            && lhs.selection.categoryTokens == rhs.selection.categoryTokens
-        return scalarsEqual && selectionEqual
+            && lhs.appGroupIDs == rhs.appGroupIDs
+        return a && b
     }
 
-    /// Encoding routes `selection` through nested `Data` to mirror the existing
-    /// `AppConfigurationStore.saveSelectedAppsToUserDefaults` pattern. This insulates
-    /// us from changes in `FamilyActivitySelection`'s codable representation.
     enum CodingKeys: String, CodingKey {
-        case id, name, selectionData, isEnabled, schedule, cooldownMinutes
+        case id, name, type, appGroupIDs, isEnabled, schedule, cooldownMinutes
         case usageLimitMinutes, usageLockMinutes, createdAt
     }
 
@@ -77,30 +86,27 @@ struct BlockingPreset: Identifiable, Codable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
         name = try c.decode(String.self, forKey: .name)
+        type = try c.decodeIfPresent(BlockType.self, forKey: .type) ?? .schedule
+        appGroupIDs = try c.decodeIfPresent([UUID].self, forKey: .appGroupIDs) ?? []
         isEnabled = try c.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? false
         schedule = try c.decodeIfPresent(BlockingSchedule.self, forKey: .schedule)
         cooldownMinutes = try c.decodeIfPresent(Int.self, forKey: .cooldownMinutes) ?? 5
         usageLimitMinutes = try c.decodeIfPresent(Int.self, forKey: .usageLimitMinutes)
         usageLockMinutes = try c.decodeIfPresent(Int.self, forKey: .usageLockMinutes) ?? 180
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
-        if let data = try c.decodeIfPresent(Data.self, forKey: .selectionData) {
-            selection = (try? JSONDecoder().decode(FamilyActivitySelection.self, from: data)) ?? FamilyActivitySelection()
-        } else {
-            selection = FamilyActivitySelection()
-        }
     }
 
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(id, forKey: .id)
         try c.encode(name, forKey: .name)
+        try c.encode(type, forKey: .type)
+        try c.encode(appGroupIDs, forKey: .appGroupIDs)
         try c.encode(isEnabled, forKey: .isEnabled)
         try c.encodeIfPresent(schedule, forKey: .schedule)
         try c.encode(cooldownMinutes, forKey: .cooldownMinutes)
         try c.encodeIfPresent(usageLimitMinutes, forKey: .usageLimitMinutes)
         try c.encode(usageLockMinutes, forKey: .usageLockMinutes)
         try c.encode(createdAt, forKey: .createdAt)
-        let selectionData = try JSONEncoder().encode(selection)
-        try c.encode(selectionData, forKey: .selectionData)
     }
 }

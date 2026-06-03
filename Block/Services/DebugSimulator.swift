@@ -4,14 +4,9 @@
 //
 //  Test affordances exposed in DebugMenuView. All compiled out of release.
 //
-//  Provides:
-//    - Schedule "fire interval start/end now" for any preset (in-process,
-//      bypassing the BlockMonitor extension)
-//    - NFC `simulateTagScan` shortcuts (registered tag toggle, fake tag,
-//      registration without hardware)
-//    - Cooldown fast-forward (jumps the persisted cooldown end-time to now)
-//    - SharedDefaults snapshot for the live state inspector
-//    - "Reset all" to clear shields, running flags, cooldowns
+//  Provides in-process stand-ins for the BlockMonitor extension (which doesn't
+//  run on Simulator): fire a schedule interval, fire a usage threshold, expire a
+//  lockout, fast-forward a cooldown — plus NFC simulation and a state snapshot.
 //
 
 #if DEBUG
@@ -25,27 +20,24 @@ enum DebugSimulator {
 
     // MARK: - Schedule simulation
 
-    /// Run the same code path the BlockMonitor extension would on `intervalDidStart`.
-    static func fireScheduleStart(presetID: UUID) {
-        // Flush pending preset writes — actuator reads from disk like the extension does.
-        PresetStore.shared.flush()
-        let applied = BlockingActuator.start(presetID: presetID, bypassWeekday: true)
+    static func fireScheduleStart(blockID: UUID) {
+        BlockStore.shared.flush()
+        AppGroupStore.shared.flush()
+        let applied = BlockingActuator.start(blockID: blockID, bypassWeekday: true)
         DebugLog.shared.log(.actuator, applied
-            ? "fireScheduleStart applied for preset \(presetID.uuidString.prefix(8))"
-            : "fireScheduleStart skipped (preset missing) \(presetID.uuidString.prefix(8))")
+            ? "fireScheduleStart applied for block \(blockID.uuidString.prefix(8))"
+            : "fireScheduleStart skipped (block missing) \(blockID.uuidString.prefix(8))")
         SchedulingManager.shared.refresh()
     }
 
-    /// Run the same code path the BlockMonitor extension would on `intervalDidEnd`.
-    static func fireScheduleEnd(presetID: UUID) {
-        BlockingActuator.end(presetID: presetID)
-        DebugLog.shared.log(.actuator, "fireScheduleEnd cleared preset \(presetID.uuidString.prefix(8))")
+    static func fireScheduleEnd(blockID: UUID) {
+        BlockingActuator.end(blockID: blockID)
+        DebugLog.shared.log(.actuator, "fireScheduleEnd cleared block \(blockID.uuidString.prefix(8))")
         SchedulingManager.shared.refresh()
     }
 
     // MARK: - NFC simulation
 
-    /// Simulate a tap with the registered tag (toggles tag-flow blocking).
     static func simulateRegisteredTagScan() {
         guard let id = AppConfigurationStore.shared.registeredTagIdentifier else {
             DebugLog.shared.log(.nfc, "no tag registered — use 'Register fake tag' first")
@@ -55,14 +47,12 @@ enum DebugSimulator {
         NFCManager.shared.simulateTagScan(withId: id)
     }
 
-    /// Simulate a tap with an unknown tag id — should be ignored by the callback.
     static func simulateUnknownTagScan() {
         let fake = "deadbeef\(Int.random(in: 1000...9999))"
         DebugLog.shared.log(.nfc, "simulating unknown tag scan: \(fake)")
         NFCManager.shared.simulateTagScan(withId: fake)
     }
 
-    /// Register a fake tag id (when no tag is registered, the callback registers it).
     static func registerFakeTag() {
         if AppConfigurationStore.shared.registeredTagIdentifier != nil {
             DebugLog.shared.log(.nfc, "tag already registered — clear first")
@@ -75,82 +65,70 @@ enum DebugSimulator {
 
     // MARK: - Cooldown fast-forward
 
-    /// Jump the persisted cooldown end-time to now so the timer fires on the next tick.
     static func expireCooldown() {
         guard let active = CooldownManager.shared.activeCooldown else {
             DebugLog.shared.log(.cooldown, "no active cooldown to fast-forward")
             return
         }
-        SharedDefaults.suite.set(Date(),
-                                 forKey: SharedDefaults.Keys.cooldownEnd(presetID: active.presetID))
-        DebugLog.shared.log(.cooldown, "fast-forwarded cooldown for preset \(active.presetID.uuidString.prefix(8))")
-        // Force the manager to re-evaluate immediately.
+        SharedDefaults.suite.set(Date(), forKey: SharedDefaults.Keys.cooldownEnd(blockID: active.blockID))
+        DebugLog.shared.log(.cooldown, "fast-forwarded cooldown for block \(active.blockID.uuidString.prefix(8))")
         CooldownManager.shared.complete()
     }
 
-    /// Start a 10-second cooldown for testing the gating UI without waiting minutes.
-    static func startShortCooldown(presetID: UUID, seconds: Int = 10) {
+    static func startShortCooldown(blockID: UUID, seconds: Int = 10) {
         let endsAt = Date().addingTimeInterval(TimeInterval(seconds))
-        SharedDefaults.suite.set(endsAt,
-                                 forKey: SharedDefaults.Keys.cooldownEnd(presetID: presetID))
-        // Easiest restoration path: have the manager pick it up.
+        SharedDefaults.suite.set(endsAt, forKey: SharedDefaults.Keys.cooldownEnd(blockID: blockID))
         CooldownManager.shared.restoreActiveCooldownsIfAny()
-        DebugLog.shared.log(.cooldown, "started \(seconds)s cooldown for preset \(presetID.uuidString.prefix(8))")
+        DebugLog.shared.log(.cooldown, "started \(seconds)s cooldown for block \(blockID.uuidString.prefix(8))")
     }
 
     // MARK: - Usage-limit simulation
 
-    /// Run the same code path the BlockMonitor extension would on
-    /// `eventDidReachThreshold`: shield the preset and start the timed lockout.
-    /// (DeviceActivity events never fire on Simulator, so this stands in for them.)
-    static func fireUsageThreshold(presetID: UUID) {
-        PresetStore.shared.flush()
-        let applied = BlockingActuator.start(presetID: presetID, bypassWeekday: true, setRunningFlag: false)
-        let lockMinutes = BlockingActuator.loadPreset(id: presetID)?.usageLockMinutes ?? 180
-        UsageMonitoring.startLockout(presetID: presetID, minutes: lockMinutes)
+    static func fireUsageThreshold(blockID: UUID) {
+        BlockStore.shared.flush()
+        AppGroupStore.shared.flush()
+        let applied = BlockingActuator.start(blockID: blockID, bypassWeekday: true, setRunningFlag: false)
+        let lockMinutes = BlockStore.shared.block(id: blockID)?.usageLockMinutes ?? 180
+        UsageMonitoring.startLockout(blockID: blockID, minutes: lockMinutes)
         UsageLimitManager.shared.refresh()
         DebugLog.shared.log(.actuator, applied
-            ? "fireUsageThreshold: locked \(presetID.uuidString.prefix(8)) for \(lockMinutes)m"
-            : "fireUsageThreshold skipped (preset missing) \(presetID.uuidString.prefix(8))")
+            ? "fireUsageThreshold: locked \(blockID.uuidString.prefix(8)) for \(lockMinutes)m"
+            : "fireUsageThreshold skipped (block missing) \(blockID.uuidString.prefix(8))")
     }
 
-    /// Jump a usage lockout's end-time to now and reconcile, so it releases and
-    /// re-arms a fresh budget without waiting out the lockout.
-    static func expireUsageLock(presetID: UUID) {
-        SharedDefaults.suite.set(Date(),
-                                 forKey: SharedDefaults.Keys.usageLockEnd(presetID: presetID))
+    static func expireUsageLock(blockID: UUID) {
+        SharedDefaults.suite.set(Date(), forKey: SharedDefaults.Keys.usageLockEnd(blockID: blockID))
         UsageLimitManager.shared.reconcileExpiredLocks()
-        DebugLog.shared.log(.actuator, "expired usage lock for \(presetID.uuidString.prefix(8))")
+        DebugLog.shared.log(.actuator, "expired usage lock for \(blockID.uuidString.prefix(8))")
     }
 
     // MARK: - Reset
 
-    /// Clear every preset shield + running flag + cooldown + usage lock.
-    /// Doesn't delete presets themselves.
+    /// Clear every block shield + running flag + cooldown + usage lock.
+    /// Doesn't delete blocks/groups themselves.
     static func resetAllRuntime() {
         let suite = SharedDefaults.suite
-        for preset in PresetStore.shared.presets {
-            ManagedSettingsStore(named: BlockingActuator.appsStoreName(for: preset.id)).clearAllSettings()
-            ManagedSettingsStore(named: BlockingActuator.categoriesStoreName(for: preset.id)).clearAllSettings()
-            suite.removeObject(forKey: SharedDefaults.Keys.running(presetID: preset.id))
-            suite.removeObject(forKey: SharedDefaults.Keys.cooldownEnd(presetID: preset.id))
-            UsageMonitoring.stopLockout(for: preset.id) // clears usageLockEnd too
-            if preset.isEnabled {
-                PresetStore.shared.setEnabled(id: preset.id, enabled: false)
-            }
+        for block in BlockStore.shared.blocks {
+            ManagedSettingsStore(named: BlockingActuator.appsStoreName(for: block.id)).clearAllSettings()
+            ManagedSettingsStore(named: BlockingActuator.categoriesStoreName(for: block.id)).clearAllSettings()
+            suite.removeObject(forKey: SharedDefaults.Keys.running(blockID: block.id))
+            suite.removeObject(forKey: SharedDefaults.Keys.cooldownEnd(blockID: block.id))
+            UsageMonitoring.stopLockout(for: block.id)
+            if block.isEnabled { BlockStore.shared.setEnabled(id: block.id, enabled: false) }
         }
-        ScreenTimeManager.shared.disableBlocking()
         CooldownManager.shared.cancel()
         SchedulingManager.shared.refresh()
         UsageLimitManager.shared.refresh()
-        DebugLog.shared.log(.state, "reset all runtime state (presets preserved)")
+        DebugLog.shared.log(.state, "reset all runtime state (blocks + groups preserved)")
     }
 
     // MARK: - State snapshot
 
-    struct PresetSnapshot: Identifiable {
+    struct BlockSnapshot: Identifiable {
         let id: UUID
         let name: String
+        let type: BlockType
+        let groupNames: [String]
         let appCount: Int
         let categoryCount: Int
         let scheduleSummary: String?
@@ -166,47 +144,43 @@ enum DebugSimulator {
     struct GlobalSnapshot {
         let authorizationStatus: AuthorizationStatus
         let registeredTag: String?
-        let isTagFlowBlocking: Bool
-        let hasSelectedApps: Bool
-        let selectedAppCount: Int
+        let groupCount: Int
         let activeScheduledIDs: Set<UUID>
-        let presets: [PresetSnapshot]
-        let activeCooldownPresetID: UUID?
+        let blocks: [BlockSnapshot]
+        let activeCooldownBlockID: UUID?
     }
 
     static func snapshot() -> GlobalSnapshot {
         let suite = SharedDefaults.suite
-        let configStore = AppConfigurationStore.shared
+        let groups = AppGroupStore.shared.groups
 
-        let presetSnapshots: [PresetSnapshot] = PresetStore.shared.presets.map { preset in
-            let runningKey = SharedDefaults.Keys.running(presetID: preset.id)
-            let cooldownKey = SharedDefaults.Keys.cooldownEnd(presetID: preset.id)
-            let usageLockKey = SharedDefaults.Keys.usageLockEnd(presetID: preset.id)
-            return PresetSnapshot(
-                id: preset.id,
-                name: preset.name,
-                appCount: preset.selection.applicationTokens.count,
-                categoryCount: preset.selection.categoryTokens.count,
-                scheduleSummary: preset.schedule?.summary,
-                isEnabled: preset.isEnabled,
-                isScheduledRunning: suite.bool(forKey: runningKey),
-                cooldownEndsAt: suite.object(forKey: cooldownKey) as? Date,
-                cooldownMinutes: preset.cooldownMinutes,
-                usageLimitMinutes: preset.usageLimitMinutes,
-                usageLockMinutes: preset.usageLockMinutes,
-                usageLockEndsAt: suite.object(forKey: usageLockKey) as? Date
+        let blockSnapshots: [BlockSnapshot] = BlockStore.shared.blocks.map { block in
+            let tokens = BlockResolution.tokens(for: block, groups: groups)
+            return BlockSnapshot(
+                id: block.id,
+                name: block.name,
+                type: block.type,
+                groupNames: groups.filter { block.appGroupIDs.contains($0.id) }.map { $0.name },
+                appCount: tokens.apps.count,
+                categoryCount: tokens.categories.count,
+                scheduleSummary: block.schedule?.summary,
+                isEnabled: block.isEnabled,
+                isScheduledRunning: suite.bool(forKey: SharedDefaults.Keys.running(blockID: block.id)),
+                cooldownEndsAt: suite.object(forKey: SharedDefaults.Keys.cooldownEnd(blockID: block.id)) as? Date,
+                cooldownMinutes: block.cooldownMinutes,
+                usageLimitMinutes: block.usageLimitMinutes,
+                usageLockMinutes: block.usageLockMinutes,
+                usageLockEndsAt: suite.object(forKey: SharedDefaults.Keys.usageLockEnd(blockID: block.id)) as? Date
             )
         }
 
         return GlobalSnapshot(
             authorizationStatus: ScreenTimeManager.shared.authorizationStatus,
-            registeredTag: configStore.registeredTagIdentifier,
-            isTagFlowBlocking: configStore.isBlockingEnabled,
-            hasSelectedApps: configStore.hasSelectedApps,
-            selectedAppCount: configStore.selectedApps.applicationTokens.count,
-            activeScheduledIDs: SchedulingManager.shared.activeScheduledPresetIDs,
-            presets: presetSnapshots,
-            activeCooldownPresetID: CooldownManager.shared.activeCooldown?.presetID
+            registeredTag: AppConfigurationStore.shared.registeredTagIdentifier,
+            groupCount: groups.count,
+            activeScheduledIDs: SchedulingManager.shared.activeScheduledBlockIDs,
+            blocks: blockSnapshots,
+            activeCooldownBlockID: CooldownManager.shared.activeCooldown?.blockID
         )
     }
 }

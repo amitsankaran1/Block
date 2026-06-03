@@ -6,16 +6,16 @@
 //  interval or a usage threshold.
 //
 //  Activity names (see SchedulingManager / UsageMonitoring):
-//    - "preset.<UUID>" / ".early" / ".late"  → time-of-day scheduled block
-//    - "usage.<UUID>"                         → all-day usage counting window
-//    - "lock.<UUID>"                          → one-shot usage lockout window
+//    - "block.<UUID>" / ".early" / ".late"  → time-of-day scheduled block
+//    - "usage.<UUID>"                        → all-day usage counting window
+//    - "lock.<UUID>"                         → one-shot usage lockout window
 //
 //  Required target setup (do in Xcode UI):
 //    - Target: BlockMonitor (Device Activity Monitor Extension template)
 //    - Embed in host app: Block
 //    - Capabilities on this target: Family Controls, App Groups (group.com.amitsankaran.Block)
-//    - Target membership for SharedDefaults.swift, BlockingPreset.swift, BlockingSchedule.swift,
-//      BlockingActuator.swift, UsageMonitoring.swift: tick BOTH Block and BlockMonitor.
+//    - Target membership for the Shared/ files (SharedDefaults, BlockRule, AppGroup,
+//      BlockingSchedule, BlockingActuator, UsageMonitoring, BlockResolution): tick BOTH targets.
 //
 
 import DeviceActivity
@@ -24,21 +24,21 @@ import Foundation
 class BlockMonitorExtension: DeviceActivityMonitor {
 
     private enum ActivityKind {
-        case schedule   // preset.<UUID> (and .early/.late) — time-of-day block
+        case schedule   // block.<UUID> (and .early/.late) — time-of-day block
         case usage      // usage.<UUID> — cumulative counting window
         case lock       // lock.<UUID> — one-shot usage lockout window
     }
 
     override func intervalDidStart(for activity: DeviceActivityName) {
         super.intervalDidStart(for: activity)
-        guard let (kind, presetID) = Self.parse(activity) else { return }
+        guard let (kind, blockID) = Self.parse(activity) else { return }
         switch kind {
         case .schedule:
-            BlockingActuator.start(presetID: presetID)
+            BlockingActuator.start(blockID: blockID)
         case .lock:
             // Lockout window began — ensure the shield is up (idempotent; the
             // threshold handler already applied it).
-            BlockingActuator.start(presetID: presetID, bypassWeekday: true, setRunningFlag: false)
+            BlockingActuator.start(blockID: blockID, bypassWeekday: true, setRunningFlag: false)
         case .usage:
             break // counting window only — never shields on its own.
         }
@@ -46,45 +46,43 @@ class BlockMonitorExtension: DeviceActivityMonitor {
 
     override func intervalDidEnd(for activity: DeviceActivityName) {
         super.intervalDidEnd(for: activity)
-        guard let (kind, presetID) = Self.parse(activity) else { return }
+        guard let (kind, blockID) = Self.parse(activity) else { return }
         switch kind {
         case .schedule:
-            BlockingActuator.end(presetID: presetID)
+            BlockingActuator.end(blockID: blockID)
         case .lock:
             // Lockout elapsed — release the shield, clear the lock state, and
             // re-arm the usage budget from zero.
-            BlockingActuator.end(presetID: presetID)
-            UsageMonitoring.stopLockout(for: presetID)
-            if let preset = BlockingActuator.loadPreset(id: presetID) {
-                UsageMonitoring.startUsageMonitor(for: preset)
-            }
+            BlockingActuator.end(blockID: blockID)
+            UsageMonitoring.stopLockout(for: blockID)
+            UsageMonitoring.startUsageMonitor(forBlockID: blockID)
         case .usage:
             break // all-day window auto-restarts (repeats: true); counter resets.
         }
     }
 
-    /// Cumulative usage crossed the preset's budget — lock the whole preset.
+    /// Cumulative usage crossed the block's budget — lock the whole block.
     override func eventDidReachThreshold(_ event: DeviceActivityEvent.Name, activity: DeviceActivityName) {
         super.eventDidReachThreshold(event, activity: activity)
-        guard let (kind, presetID) = Self.parse(activity), kind == .usage else { return }
+        guard let (kind, blockID) = Self.parse(activity), kind == .usage else { return }
 
         // Shield immediately, then register the timed lockout so it auto-releases.
-        BlockingActuator.start(presetID: presetID, bypassWeekday: true, setRunningFlag: false)
-        let lockMinutes = BlockingActuator.loadPreset(id: presetID)?.usageLockMinutes ?? 180
-        UsageMonitoring.startLockout(presetID: presetID, minutes: lockMinutes)
+        BlockingActuator.start(blockID: blockID, bypassWeekday: true, setRunningFlag: false)
+        let lockMinutes = BlockResolution.loadBlock(id: blockID)?.usageLockMinutes ?? 180
+        UsageMonitoring.startLockout(blockID: blockID, minutes: lockMinutes)
     }
 
     // MARK: - Parsing
 
-    /// Map an activity name to its kind + preset UUID. Returns nil for anything
+    /// Map an activity name to its kind + block UUID. Returns nil for anything
     /// unrecognized.
     private static func parse(_ activity: DeviceActivityName) -> (ActivityKind, UUID)? {
         let raw = activity.rawValue
         let kind: ActivityKind
         let rest: Substring
-        if raw.hasPrefix("preset.") {
+        if raw.hasPrefix("block.") {
             kind = .schedule
-            rest = raw.dropFirst("preset.".count)
+            rest = raw.dropFirst("block.".count)
         } else if raw.hasPrefix("usage.") {
             kind = .usage
             rest = raw.dropFirst("usage.".count)

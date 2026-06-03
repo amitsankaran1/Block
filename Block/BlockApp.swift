@@ -20,7 +20,16 @@ struct BlockApp: App {
         WindowGroup {
             ContentView()
                 .task {
-                    _ = PresetStore.shared
+                    _ = AppGroupStore.shared
+                    _ = BlockStore.shared
+                    #if DEBUG
+                    if ProcessInfo.processInfo.environment["BLOCK_SEED_LEGACY"] == "1" {
+                        Migration.seedLegacyForTesting()
+                    }
+                    #endif
+                    Migration.runIfNeeded()
+                    BlockStore.shared.reload()
+                    AppGroupStore.shared.reload()
                     SchedulingManager.shared.reapplyAllSchedules()
                     UsageLimitManager.shared.reapplyAllUsageLimits()
                     UsageLimitManager.shared.reconcileExpiredLocks()

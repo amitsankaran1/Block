@@ -9,11 +9,11 @@
 import SwiftUI
 
 struct CooldownView: View {
-    let presetID: UUID
+    let blockID: UUID
     @Binding var isPresented: Bool
 
     @StateObject private var cooldown = CooldownManager.shared
-    @StateObject private var presetStore = PresetStore.shared
+    @StateObject private var blockStore = BlockStore.shared
 
     var body: some View {
         NavigationView {
@@ -54,7 +54,7 @@ struct CooldownView: View {
         .onAppear { startIfNeeded() }
     }
 
-    private var preset: BlockingPreset? { presetStore.preset(id: presetID) }
+    private var block: BlockRule? { blockStore.block(id: blockID) }
 
     private var header: some View {
         VStack(spacing: 20) {
@@ -70,7 +70,7 @@ struct CooldownView: View {
             .shadow(color: ArtNouveauTheme.warning.opacity(0.3), radius: 12, x: 0, y: 6)
 
             VStack(spacing: 8) {
-                Text("Disable “\(preset?.name ?? "Preset")”?")
+                Text("Disable “\(block?.name ?? "Block")”?")
                     .font(.system(.title2, design: .default).weight(.bold))
                     .foregroundColor(ArtNouveauTheme.label)
                     .multilineTextAlignment(.center)
@@ -142,9 +142,9 @@ struct CooldownView: View {
     }
 
     private func startIfNeeded() {
-        // If a cooldown for this preset is already running, leave it alone.
-        if cooldown.activeCooldown?.presetID == presetID { return }
-        let minutes = preset?.cooldownMinutes ?? 5
-        cooldown.start(for: presetID, minutes: minutes)
+        // If a cooldown for this block is already running, leave it alone.
+        if cooldown.activeCooldown?.blockID == blockID { return }
+        let minutes = block?.cooldownMinutes ?? 5
+        cooldown.start(for: blockID, minutes: minutes)
     }
 }
