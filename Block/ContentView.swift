@@ -14,11 +14,14 @@ struct ContentView: View {
     @StateObject private var screenTimeManager = ScreenTimeManager.shared
     @StateObject private var nfcManager = NFCManager.shared
     @StateObject private var schedulingManager = SchedulingManager.shared
+    @StateObject private var usageLimitManager = UsageLimitManager.shared
     @StateObject private var presetStore = PresetStore.shared
     @State private var showSettings = false
 
     private var anyShieldActive: Bool {
-        configStore.isBlockingEnabled || !schedulingManager.activeScheduledPresetIDs.isEmpty
+        configStore.isBlockingEnabled
+            || !schedulingManager.activeScheduledPresetIDs.isEmpty
+            || !usageLimitManager.activeUsageLockPresetIDs.isEmpty
     }
 
     private var activeScheduledPresets: [BlockingPreset] {
@@ -26,9 +29,27 @@ struct ContentView: View {
         return presetStore.presets.filter { ids.contains($0.id) }
     }
 
-    private var hasUsablePreset: Bool {
+    private var activeUsageLockPresets: [BlockingPreset] {
+        let ids = usageLimitManager.activeUsageLockPresetIDs
+        return presetStore.presets.filter { ids.contains($0.id) }
+    }
+
+    /// "Name · 2h 14m" — preset name plus rounded time left on its usage lockout.
+    private func usageLockLabel(for preset: BlockingPreset) -> String {
+        guard let endsAt = usageLimitManager.lockEnd(for: preset.id) else { return preset.name }
+        let mins = max(0, Int(endsAt.timeIntervalSinceNow / 60))
+        let suffix = mins >= 60 ? "\(mins / 60)h \(mins % 60)m" : "\(mins)m"
+        return "\(preset.name) · \(suffix)"
+    }
+
+    /// A preset counts as "set up" once it has apps/categories selected, a
+    /// schedule, or a usage limit — i.e. any mechanic that can block something.
+    private var hasConfiguredPreset: Bool {
         presetStore.presets.contains { preset in
-            !preset.selection.applicationTokens.isEmpty || !preset.selection.categoryTokens.isEmpty
+            !preset.selection.applicationTokens.isEmpty
+                || !preset.selection.categoryTokens.isEmpty
+                || preset.schedule != nil
+                || preset.usageLimitMinutes != nil
         }
     }
 
@@ -36,8 +57,11 @@ struct ContentView: View {
         configStore.isTagRegistered && configStore.hasSelectedApps
     }
 
+    /// The "Setup Required" prompt is for a cold-start app only. Hide it once any
+    /// blocking method is set up (tag flow, a configured preset) or anything is
+    /// actively blocking — not just the NFC tag flow.
     private var isConfigured: Bool {
-        isTagFlowReady || hasUsablePreset
+        isTagFlowReady || hasConfiguredPreset || anyShieldActive
     }
 
     var body: some View {
@@ -152,6 +176,32 @@ struct ContentView: View {
                                             .padding(.horizontal, 10)
                                             .padding(.vertical, 5)
                                             .background(Capsule().fill(ArtNouveauTheme.errorLight))
+                                        }
+                                    }
+                                }
+                                .padding(.top, 4)
+                            }
+
+                            if !activeUsageLockPresets.isEmpty {
+                                VStack(spacing: 6) {
+                                    Text("Usage locked")
+                                        .font(.system(.caption2, design: .default).weight(.bold))
+                                        .tracking(1.0)
+                                        .textCase(.uppercase)
+                                        .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                                    HStack(spacing: 6) {
+                                        ForEach(activeUsageLockPresets) { preset in
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "hourglass")
+                                                    .font(.system(size: 9, weight: .bold))
+                                                    .foregroundColor(ArtNouveauTheme.warning)
+                                                Text(usageLockLabel(for: preset))
+                                                    .font(.system(.caption, design: .default).weight(.semibold))
+                                                    .foregroundColor(ArtNouveauTheme.warning)
+                                            }
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 5)
+                                            .background(Capsule().fill(ArtNouveauTheme.warningLight))
                                         }
                                     }
                                 }
@@ -309,6 +359,7 @@ struct ContentView: View {
                 screenTimeManager.checkAuthorizationStatus()
                 screenTimeManager.restoreBlockingIfNeeded()
                 schedulingManager.refresh()
+                usageLimitManager.reconcileExpiredLocks()
                 #if DEBUG
                 if ProcessInfo.processInfo.environment["BLOCK_OPEN_SETTINGS"] == "1" {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
@@ -319,6 +370,7 @@ struct ContentView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
                 schedulingManager.refresh()
+                usageLimitManager.reconcileExpiredLocks()
             }
         }
     }

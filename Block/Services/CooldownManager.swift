@@ -96,9 +96,21 @@ class CooldownManager: ObservableObject {
     }
 
     private func completeImmediately(presetID: UUID) {
+        // Note whether this release is ending a usage lockout (vs. a scheduled
+        // block) before we clear any state.
+        let wasUsageLocked = (defaults.object(
+            forKey: SharedDefaults.Keys.usageLockEnd(presetID: presetID)) as? Date).map { $0 > Date() } ?? false
+
         // Clear the named store and the running flag.
         ScreenTimeManager.shared.clearPresetShield(id: presetID)
         defaults.removeObject(forKey: SharedDefaults.Keys.running(presetID: presetID))
+
+        // Releasing a usage lockout early: drop the lockout window and start a
+        // fresh budget so the limit re-arms.
+        if wasUsageLocked {
+            UsageLimitManager.shared.rearmAfterRelease(presetID: presetID)
+        }
+
         // Also turn off manual enable so the editor reflects the change.
         if let preset = PresetStore.shared.preset(id: presetID), preset.isEnabled {
             PresetStore.shared.setEnabled(id: presetID, enabled: false)

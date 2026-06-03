@@ -122,6 +122,11 @@ struct DebugMenuView: View {
             let secs = Int(endsAt.timeIntervalSinceNow)
             row("Cooldown ends in", value: secs > 0 ? "\(secs)s" : "expired")
         }
+        row("Usage limit", value: preset.usageLimitMinutes.map { "\($0) min → lock \(preset.usageLockMinutes)m" } ?? "off")
+        if let endsAt = preset.usageLockEndsAt {
+            let secs = Int(endsAt.timeIntervalSinceNow)
+            row("Usage lock ends in", value: secs > 0 ? "\(secs / 60)m \(secs % 60)s" : "expired")
+        }
 
         Button("Fire interval start now") {
             DebugSimulator.fireScheduleStart(presetID: preset.id)
@@ -135,6 +140,16 @@ struct DebugMenuView: View {
         if cooldownManager.activeCooldown?.presetID == preset.id {
             Button("Fast-forward cooldown") {
                 DebugSimulator.expireCooldown()
+            }
+        }
+        if preset.usageLimitMinutes != nil {
+            Button("Fire usage threshold (lock now)") {
+                DebugSimulator.fireUsageThreshold(presetID: preset.id)
+            }
+        }
+        if preset.usageLockEndsAt != nil {
+            Button("Expire usage lock") {
+                DebugSimulator.expireUsageLock(presetID: preset.id)
             }
         }
     }

@@ -28,5 +28,8 @@ enum SharedDefaults {
 
         static func cooldownEnd(presetID: UUID) -> String { "cooldown.\(presetID.uuidString)" }
         static func running(presetID: UUID) -> String { "running.\(presetID.uuidString)" }
+        /// `Date` when the current usage-limit lockout auto-expires. Presence of a
+        /// future date is the source of truth for "this preset is usage-locked".
+        static func usageLockEnd(presetID: UUID) -> String { "usagelock.\(presetID.uuidString)" }
     }
 }

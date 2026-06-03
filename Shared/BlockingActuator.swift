@@ -15,11 +15,16 @@ import FamilyControls
 
 enum BlockingActuator {
 
-    /// Apply the preset's shield to its named store and mark the running flag.
+    /// Apply the preset's shield to its named store.
     /// Mirrors `BlockMonitorExtension.intervalDidStart` so simulator and device
     /// behavior stay in lockstep.
+    ///
+    /// - Parameter setRunningFlag: when `true` (scheduled blocks), marks the
+    ///   `running` flag that drives the home "Scheduled blocks" display. The
+    ///   usage-lock path passes `false` — usage locks are tracked separately via
+    ///   `usageLockEnd`, so they must not masquerade as scheduled blocks.
     @discardableResult
-    static func start(presetID: UUID, bypassWeekday: Bool = false) -> Bool {
+    static func start(presetID: UUID, bypassWeekday: Bool = false, setRunningFlag: Bool = true) -> Bool {
         guard let preset = loadPreset(id: presetID) else { return false }
 
         if !bypassWeekday, let schedule = preset.schedule {
@@ -33,7 +38,9 @@ enum BlockingActuator {
             categoriesStore: ManagedSettingsStore(named: categoriesStoreName(for: presetID))
         )
 
-        SharedDefaults.suite.set(true, forKey: SharedDefaults.Keys.running(presetID: presetID))
+        if setRunningFlag {
+            SharedDefaults.suite.set(true, forKey: SharedDefaults.Keys.running(presetID: presetID))
+        }
         return true
     }
 
@@ -76,7 +83,9 @@ enum BlockingActuator {
         ManagedSettingsStore.Name(rawValue: "preset.\(presetID.uuidString).cats")
     }
 
-    private static func loadPreset(id: UUID) -> BlockingPreset? {
+    /// Decode a single preset from the shared App Group store. Used by the
+    /// actuator and the usage-monitoring helpers in both app and extension.
+    static func loadPreset(id: UUID) -> BlockingPreset? {
         guard let data = SharedDefaults.suite.data(forKey: SharedDefaults.Keys.presets) else {
             return nil
         }

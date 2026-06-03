@@ -98,9 +98,35 @@ enum DebugSimulator {
         DebugLog.shared.log(.cooldown, "started \(seconds)s cooldown for preset \(presetID.uuidString.prefix(8))")
     }
 
+    // MARK: - Usage-limit simulation
+
+    /// Run the same code path the BlockMonitor extension would on
+    /// `eventDidReachThreshold`: shield the preset and start the timed lockout.
+    /// (DeviceActivity events never fire on Simulator, so this stands in for them.)
+    static func fireUsageThreshold(presetID: UUID) {
+        PresetStore.shared.flush()
+        let applied = BlockingActuator.start(presetID: presetID, bypassWeekday: true, setRunningFlag: false)
+        let lockMinutes = BlockingActuator.loadPreset(id: presetID)?.usageLockMinutes ?? 180
+        UsageMonitoring.startLockout(presetID: presetID, minutes: lockMinutes)
+        UsageLimitManager.shared.refresh()
+        DebugLog.shared.log(.actuator, applied
+            ? "fireUsageThreshold: locked \(presetID.uuidString.prefix(8)) for \(lockMinutes)m"
+            : "fireUsageThreshold skipped (preset missing) \(presetID.uuidString.prefix(8))")
+    }
+
+    /// Jump a usage lockout's end-time to now and reconcile, so it releases and
+    /// re-arms a fresh budget without waiting out the lockout.
+    static func expireUsageLock(presetID: UUID) {
+        SharedDefaults.suite.set(Date(),
+                                 forKey: SharedDefaults.Keys.usageLockEnd(presetID: presetID))
+        UsageLimitManager.shared.reconcileExpiredLocks()
+        DebugLog.shared.log(.actuator, "expired usage lock for \(presetID.uuidString.prefix(8))")
+    }
+
     // MARK: - Reset
 
-    /// Clear every preset shield + running flag + cooldown. Doesn't delete presets themselves.
+    /// Clear every preset shield + running flag + cooldown + usage lock.
+    /// Doesn't delete presets themselves.
     static func resetAllRuntime() {
         let suite = SharedDefaults.suite
         for preset in PresetStore.shared.presets {
@@ -108,6 +134,7 @@ enum DebugSimulator {
             ManagedSettingsStore(named: BlockingActuator.categoriesStoreName(for: preset.id)).clearAllSettings()
             suite.removeObject(forKey: SharedDefaults.Keys.running(presetID: preset.id))
             suite.removeObject(forKey: SharedDefaults.Keys.cooldownEnd(presetID: preset.id))
+            UsageMonitoring.stopLockout(for: preset.id) // clears usageLockEnd too
             if preset.isEnabled {
                 PresetStore.shared.setEnabled(id: preset.id, enabled: false)
             }
@@ -115,6 +142,7 @@ enum DebugSimulator {
         ScreenTimeManager.shared.disableBlocking()
         CooldownManager.shared.cancel()
         SchedulingManager.shared.refresh()
+        UsageLimitManager.shared.refresh()
         DebugLog.shared.log(.state, "reset all runtime state (presets preserved)")
     }
 
@@ -130,6 +158,9 @@ enum DebugSimulator {
         let isScheduledRunning: Bool
         let cooldownEndsAt: Date?
         let cooldownMinutes: Int
+        let usageLimitMinutes: Int?
+        let usageLockMinutes: Int
+        let usageLockEndsAt: Date?
     }
 
     struct GlobalSnapshot {
@@ -150,6 +181,7 @@ enum DebugSimulator {
         let presetSnapshots: [PresetSnapshot] = PresetStore.shared.presets.map { preset in
             let runningKey = SharedDefaults.Keys.running(presetID: preset.id)
             let cooldownKey = SharedDefaults.Keys.cooldownEnd(presetID: preset.id)
+            let usageLockKey = SharedDefaults.Keys.usageLockEnd(presetID: preset.id)
             return PresetSnapshot(
                 id: preset.id,
                 name: preset.name,
@@ -159,7 +191,10 @@ enum DebugSimulator {
                 isEnabled: preset.isEnabled,
                 isScheduledRunning: suite.bool(forKey: runningKey),
                 cooldownEndsAt: suite.object(forKey: cooldownKey) as? Date,
-                cooldownMinutes: preset.cooldownMinutes
+                cooldownMinutes: preset.cooldownMinutes,
+                usageLimitMinutes: preset.usageLimitMinutes,
+                usageLockMinutes: preset.usageLockMinutes,
+                usageLockEndsAt: suite.object(forKey: usageLockKey) as? Date
             )
         }
 
