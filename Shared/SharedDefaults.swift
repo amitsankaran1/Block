@@ -34,6 +34,10 @@ enum SharedDefaults {
         static let blockingEnabled = "isBlockingEnabled"
 
         static func cooldownEnd(blockID: UUID) -> String { "cooldown.\(blockID.uuidString)" }
+        /// Number of chunked app/webDomain shield stores currently written for a
+        /// block (see BlockingActuator). Chunk 0 is "block.<UUID>"; chunks 1+ are
+        /// "block.<UUID>.apps.<i>". Missing key means at most the legacy chunk 0.
+        static func shieldChunkCount(blockID: UUID) -> String { "shieldChunks.\(blockID.uuidString)" }
         static func running(blockID: UUID) -> String { "running.\(blockID.uuidString)" }
         /// `Date` when the current usage-limit lockout auto-expires. Presence of a
         /// future date is the source of truth for "this block is usage-locked".
