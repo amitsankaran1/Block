@@ -65,6 +65,11 @@ enum BlockingActuator {
         appsStore.shield.applications = tokens.apps.isEmpty ? nil : tokens.apps
         appsStore.shield.applicationCategories = nil
         appsStore.shield.webDomains = tokens.webDomains.isEmpty ? nil : tokens.webDomains
+        // Typed-in domains have no picker token; the content filter blocks them in
+        // Safari (incl. private browsing) with no "allow anyway" escape.
+        appsStore.webContent.blockedByFilter = tokens.domains.isEmpty
+            ? nil
+            : .specific(Set(tokens.domains.map { WebDomain(domain: $0) }))
 
         categoriesStore.shield.applications = nil
         categoriesStore.shield.applicationCategories = tokens.categories.isEmpty

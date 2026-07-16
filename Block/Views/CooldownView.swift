@@ -145,6 +145,12 @@ struct CooldownView: View {
         // If a cooldown for this block is already running, leave it alone.
         if cooldown.activeCooldown?.blockID == blockID { return }
         let minutes = block?.cooldownMinutes ?? 5
+        // "No cooldown" blocks have no early-disable path at all — this sheet
+        // should be unreachable for them; dismiss without releasing anything.
+        guard minutes > 0 else {
+            isPresented = false
+            return
+        }
         cooldown.start(for: blockID, minutes: minutes)
     }
 }

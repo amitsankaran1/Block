@@ -48,9 +48,12 @@ class CooldownManager: ObservableObject {
     }
 
     /// Start a new cooldown. If one is already active for a different block, it's cancelled.
+    /// Zero minutes means "no cooldown = no early disable", so a cooldown must never
+    /// start for it — the disable path simply doesn't exist for those blocks.
     func start(for blockID: UUID, minutes: Int) {
+        guard minutes >= 1 else { return }
         cancel()
-        let endsAt = Date().addingTimeInterval(TimeInterval(max(0, minutes) * 60))
+        let endsAt = Date().addingTimeInterval(TimeInterval(minutes * 60))
         let cooldown = ActiveCooldown(blockID: blockID, endsAt: endsAt)
         activeCooldown = cooldown
         defaults.set(endsAt, forKey: SharedDefaults.Keys.cooldownEnd(blockID: blockID))
@@ -58,11 +61,6 @@ class CooldownManager: ObservableObject {
         #if DEBUG
         DebugLog.shared.log(.cooldown, "start(\(minutes)m) block=\(blockID.uuidString.prefix(8)) ends=\(endsAt)")
         #endif
-
-        // Edge case: zero-minute cooldown completes immediately.
-        if endsAt <= Date() {
-            complete()
-        }
     }
 
     func cancel() {
@@ -126,8 +124,14 @@ class CooldownManager: ObservableObject {
                 guard let self, let active = self.activeCooldown else { return }
                 // Force a publisher update so the view recomputes `remaining`.
                 self.objectWillChange.send()
+                // At expiry, stop ticking but do NOT auto-complete: the user must
+                // tap "Release Block" (auto-completing here cleared the shield
+                // silently and left the button permanently disabled). The
+                // app-killed case is still auto-released on next launch by
+                // `restoreActiveCooldownsIfAny()`.
                 if active.endsAt <= Date() {
-                    self.complete()
+                    self.tickTimer?.invalidate()
+                    self.tickTimer = nil
                 }
             }
         }

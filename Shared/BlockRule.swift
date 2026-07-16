@@ -29,7 +29,11 @@ struct BlockRule: Identifiable, Codable, Equatable {
     var appGroupIDs: [UUID]
     /// Manual force-on (and the on/off state for `.tag` blocks).
     var isEnabled: Bool
-    /// Early-release friction in minutes (schedule + timer blocks).
+    /// Early-release friction in minutes (all block types). `0` is the strictest
+    /// setting — "no cooldown" — meaning there is NO in-app early-disable path
+    /// while the block is active (it lifts only when its schedule window or
+    /// usage lockout ends, via the NFC tag for tag blocks, or via the emergency
+    /// override).
     var cooldownMinutes: Int
     /// When `type == .schedule`.
     var schedule: BlockingSchedule?
