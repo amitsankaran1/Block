@@ -133,12 +133,12 @@ struct AppGroupEditorView: View {
         .alert("List is in use", isPresented: $showActiveDeleteAlert) {
             Button("OK", role: .cancel) { }
         } message: {
-            Text("This list is used by an active block. Disable the block first, then delete the list.")
+            Text("This list is used by an active block. Wait for the block to end, or disable it first, then delete the list.")
         }
         .alert("Can't remove while blocked", isPresented: $showRemovalBlockedAlert) {
             Button("OK", role: .cancel) { }
         } message: {
-            Text("This list is used by an active block, so apps and websites can be added but not removed. Disable the block first.")
+            Text("This list is used by an active block, so apps and websites can be added but not removed. Wait for the block to end, or disable it first.")
         }
         .onAppear {
             loadIfNeeded()

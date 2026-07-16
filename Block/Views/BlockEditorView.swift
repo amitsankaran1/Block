@@ -148,8 +148,8 @@ struct BlockEditorView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(storedCooldownMinutes == 0
-                 ? "This block can't be deleted while it's active, and it has no cooldown — wait for it to end."
-                 : "Disable the block first (cooldown applies), then delete it.")
+                 ? "This block can't be deleted while it's active, and it's set to “No early disable” — wait for it to end first."
+                 : "Disable the block first (its cooldown applies), then delete it.")
         }
         .onAppear {
             loadIfNeeded()
@@ -200,11 +200,11 @@ struct BlockEditorView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Cooldown").foregroundColor(ArtNouveauTheme.label)
             Text(cooldownMinutes == 0
-                 ? "None — the block can't be disabled early while active"
-                 : "\(cooldownMinutes) min wait to disable early")
+                 ? "The block can't be turned off while it's active"
+                 : "\(cooldownMinutes) min wait to turn off early")
                 .font(.system(.caption, design: .default)).foregroundColor(ArtNouveauTheme.secondaryLabel)
             Picker("Cooldown", selection: $cooldownMinutes) {
-                ForEach(Self.cooldownOptions, id: \.self) { Text($0 == 0 ? "None" : "\($0) min").tag($0) }
+                ForEach(Self.cooldownOptions, id: \.self) { Text($0 == 0 ? "No early disable" : "\($0) min").tag($0) }
             }
             .pickerStyle(.wheel).frame(maxWidth: .infinity).frame(height: 110)
         }
@@ -250,8 +250,8 @@ struct BlockEditorView: View {
 
     private var noCooldownExplainer: String {
         storedBlock?.type == .tag
-            ? "No cooldown — this block can't be disabled early in the app. Tap your tag to toggle it off."
-            : "No cooldown — this block can't be disabled early. It lifts when its schedule or lockout ends."
+            ? "This block is set to “No early disable” — it can't be turned off here. Tap your tag to toggle it off."
+            : "This block is set to “No early disable” — it can't be turned off until its schedule window or lockout ends."
     }
 
     private func toggleGroup(_ id: UUID) {
