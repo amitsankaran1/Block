@@ -13,7 +13,6 @@
 
 import Foundation
 import FamilyControls
-import ManagedSettings
 
 @MainActor
 enum DebugSimulator {
@@ -109,8 +108,7 @@ enum DebugSimulator {
     static func resetAllRuntime() {
         let suite = SharedDefaults.suite
         for block in BlockStore.shared.blocks {
-            ManagedSettingsStore(named: BlockingActuator.appsStoreName(for: block.id)).clearAllSettings()
-            ManagedSettingsStore(named: BlockingActuator.categoriesStoreName(for: block.id)).clearAllSettings()
+            BlockingActuator.clearShields(blockID: block.id)
             suite.removeObject(forKey: SharedDefaults.Keys.running(blockID: block.id))
             suite.removeObject(forKey: SharedDefaults.Keys.cooldownEnd(blockID: block.id))
             UsageMonitoring.stopLockout(for: block.id)
