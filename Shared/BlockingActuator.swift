@@ -60,9 +60,10 @@ enum BlockingActuator {
     /// stores; setting `shield.applications` and `shield.applicationCategories =
     /// .specific(...)` on the *same* store has been observed to drop the
     /// individual-apps shield, so categories live in their own store. Apps and web
-    /// domains are chunked across `tokensPerStore`-sized stores. Every property is
-    /// written unconditionally (nil when empty), and stores from a previous, larger
-    /// apply are cleared so re-applying a shrunken selection leaves no stale shields.
+    /// domains are chunked across `tokensPerStore`-sized stores. Typed-in domains are
+    /// enforced via the content filter on chunk 0. Every property is written
+    /// unconditionally (nil when empty), and stores from a previous, larger apply are
+    /// cleared so re-applying a shrunken selection leaves no stale shields.
     static func apply(tokens: BlockResolution.Tokens, blockID: UUID) {
         var appChunks = chunks(tokens.apps, size: tokensPerStore)
         var webChunks = chunks(tokens.webDomains, size: tokensPerStore)
@@ -78,6 +79,12 @@ enum BlockingActuator {
             store.shield.applications = i < appChunks.count ? appChunks[i] : nil
             store.shield.applicationCategories = nil
             store.shield.webDomains = i < webChunks.count ? webChunks[i] : nil
+            // Typed-in domains have no picker token; the content filter blocks them in
+            // Safari (incl. private browsing) with no "allow anyway" escape. Kept on
+            // chunk 0 (always present); nil elsewhere so it never goes stale.
+            store.webContent.blockedByFilter = (i == 0 && !tokens.domains.isEmpty)
+                ? .specific(Set(tokens.domains.map { WebDomain(domain: $0) }))
+                : nil
         }
         let oldCount = max(1, SharedDefaults.suite.integer(forKey: SharedDefaults.Keys.shieldChunkCount(blockID: blockID)))
         for i in newCount..<max(newCount, oldCount) {

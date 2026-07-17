@@ -104,12 +104,23 @@ class ScreenTimeManager: ObservableObject {
         UsageLimitManager.shared.refresh()
     }
 
-    /// Re-apply if currently shielded (manual, scheduled-running, or usage-locked).
-    func updateBlockShieldIfActive(_ block: BlockRule) {
+    /// Single source of truth for "this block is currently enforcing a shield":
+    /// manual/tag enable, scheduled interval running, or usage lockout in effect.
+    ///
+    /// Not itself observable — views get reactivity by holding `@StateObject`s of
+    /// `BlockStore` (isEnabled), `SchedulingManager` (running flags), and
+    /// `UsageLimitManager` (usage locks), whose published state covers everything
+    /// this reads.
+    func isBlockActive(_ block: BlockRule) -> Bool {
         let suite = SharedDefaults.suite
         let scheduledActive = suite.bool(forKey: SharedDefaults.Keys.running(blockID: block.id))
         let usageLocked = (suite.object(forKey: SharedDefaults.Keys.usageLockEnd(blockID: block.id)) as? Date).map { $0 > Date() } ?? false
-        if block.isEnabled || scheduledActive || usageLocked {
+        return block.isEnabled || scheduledActive || usageLocked
+    }
+
+    /// Re-apply if currently shielded (manual, scheduled-running, or usage-locked).
+    func updateBlockShieldIfActive(_ block: BlockRule) {
+        if isBlockActive(block) {
             applyBlockShield(block)
         }
     }

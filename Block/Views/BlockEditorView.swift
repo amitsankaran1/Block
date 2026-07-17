@@ -29,6 +29,7 @@ struct BlockEditorView: View {
 
     @State private var showCooldown = false
     @State private var showDeleteConfirm = false
+    @State private var showActiveDeleteAlert = false
     @State private var hasLoaded = false
 
     static let cooldownOptions: [Int] = [0, 1, 2, 3, 5, 10, 15, 20, 30, 45, 60]
@@ -37,6 +38,14 @@ struct BlockEditorView: View {
 
     var body: some View {
         Form {
+            if isActive {
+                Section {
+                    Label("This block is active. You can rename it or add lists, but you can't weaken it while it runs.", systemImage: "lock.fill")
+                        .font(.system(.caption, design: .default))
+                        .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                }
+            }
+
             Section("Name") {
                 TextField("Block name", text: $name).textInputAutocapitalization(.words)
             }
@@ -48,6 +57,8 @@ struct BlockEditorView: View {
                     Text("Tag").tag(BlockType.tag)
                 }
                 .pickerStyle(.segmented)
+                .disabled(isActive)
+                .opacity(isActive ? 0.5 : 1)
                 Text(typeBlurb)
                     .font(.system(.caption, design: .default))
                     .foregroundColor(ArtNouveauTheme.secondaryLabel)
@@ -60,15 +71,25 @@ struct BlockEditorView: View {
                         .foregroundColor(ArtNouveauTheme.secondaryLabel)
                 } else {
                     ForEach(groupStore.groups) { group in
+                        // Adding lists strengthens an active block and stays allowed;
+                        // unchecking a stored list would weaken it, so those rows lock.
+                        let locked = isActive && storedGroupIDs.contains(group.id)
                         Button { toggleGroup(group.id) } label: {
                             HStack {
                                 Image(systemName: groupIDs.contains(group.id) ? "checkmark.circle.fill" : "circle")
                                     .foregroundColor(groupIDs.contains(group.id) ? ArtNouveauTheme.primary : ArtNouveauTheme.tertiaryLabel)
                                 Text(group.name).foregroundColor(ArtNouveauTheme.label)
                                 Spacer()
+                                if locked {
+                                    Image(systemName: "lock.fill")
+                                        .font(.caption)
+                                        .foregroundColor(ArtNouveauTheme.tertiaryLabel)
+                                }
                             }
                         }
                         .buttonStyle(.plain)
+                        .disabled(locked)
+                        .opacity(locked ? 0.5 : 1)
                     }
                 }
             }
@@ -77,12 +98,18 @@ struct BlockEditorView: View {
 
             if isActive {
                 Section {
-                    Button { showCooldown = true } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: cooldownMinutes == 0 ? "lock.open" : "hourglass")
-                            Text(cooldownMinutes == 0 ? "Disable now" : "Disable now (cooldown)")
+                    if storedCooldownMinutes == 0 {
+                        Label(noCooldownExplainer, systemImage: "lock.fill")
+                            .font(.system(.caption, design: .default))
+                            .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                    } else {
+                        Button { showCooldown = true } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: "hourglass")
+                                Text("Disable now (cooldown)")
+                            }
+                            .foregroundColor(ArtNouveauTheme.warning)
                         }
-                        .foregroundColor(ArtNouveauTheme.warning)
                     }
                 }
             } else {
@@ -92,7 +119,9 @@ struct BlockEditorView: View {
             }
 
             Section {
-                Button(role: .destructive) { showDeleteConfirm = true } label: {
+                Button(role: .destructive) {
+                    if isActive { showActiveDeleteAlert = true } else { showDeleteConfirm = true }
+                } label: {
                     HStack(spacing: 10) { Image(systemName: "trash"); Text("Delete Block") }
                 }
             }
@@ -106,11 +135,28 @@ struct BlockEditorView: View {
         .sheet(isPresented: $showCooldown) {
             CooldownView(blockID: blockID, isPresented: $showCooldown)
         }
+        .onChange(of: showCooldown) { showing in
+            // A release inside the sheet flips the stored isEnabled off; re-sync so
+            // a Save right after doesn't re-apply the shield.
+            if !showing { isEnabled = storedBlock?.isEnabled ?? false }
+        }
         .alert("Delete block?", isPresented: $showDeleteConfirm) {
             Button("Delete", role: .destructive) { deleteBlock() }
             Button("Cancel", role: .cancel) { }
         }
-        .onAppear(perform: loadIfNeeded)
+        .alert("Block is active", isPresented: $showActiveDeleteAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(storedCooldownMinutes == 0
+                 ? "This block can't be deleted while it's active, and it's set to “No early disable” — wait for it to end first."
+                 : "Disable the block first (its cooldown applies), then delete it.")
+        }
+        .onAppear {
+            loadIfNeeded()
+            // Close the periodic-refresh staleness window so `isActive` is current.
+            schedulingManager.refresh()
+            usageLimitManager.refresh()
+        }
     }
 
     // MARK: - Type-specific config
@@ -128,6 +174,8 @@ struct BlockEditorView: View {
                         Text(schedule?.summary ?? "No schedule").foregroundColor(ArtNouveauTheme.label)
                     }
                 }
+                .disabled(isActive)
+                .opacity(isActive ? 0.5 : 1)
                 cooldownPicker
             }
         case .timer:
@@ -143,6 +191,7 @@ struct BlockEditorView: View {
                 Text("Tapping your registered tag toggles this block on or off, together with your other Tag blocks.")
                     .font(.system(.caption, design: .default))
                     .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                cooldownPicker
             }
         }
     }
@@ -150,13 +199,19 @@ struct BlockEditorView: View {
     private var cooldownPicker: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Cooldown").foregroundColor(ArtNouveauTheme.label)
-            Text(cooldownMinutes == 0 ? "No wait — disable any time" : "\(cooldownMinutes) min wait to disable early")
+            Text(cooldownMinutes == 0
+                 ? "The block can't be turned off while it's active"
+                 : "\(cooldownMinutes) min wait to turn off early")
                 .font(.system(.caption, design: .default)).foregroundColor(ArtNouveauTheme.secondaryLabel)
             Picker("Cooldown", selection: $cooldownMinutes) {
-                ForEach(Self.cooldownOptions, id: \.self) { Text($0 == 0 ? "None" : "\($0) min").tag($0) }
+                ForEach(Self.cooldownOptions, id: \.self) { Text($0 == 0 ? "No early disable" : "\($0) min").tag($0) }
             }
             .pickerStyle(.wheel).frame(maxWidth: .infinity).frame(height: 110)
         }
+        // Locked while active — otherwise swapping the cooldown out (or away from
+        // "None") and re-saving would be a bypass.
+        .disabled(isActive)
+        .opacity(isActive ? 0.5 : 1)
     }
 
     private func wheel(_ title: String, _ caption: String, selection: Binding<Int>, options: [Int], label: @escaping (Int) -> String) -> some View {
@@ -169,6 +224,8 @@ struct BlockEditorView: View {
             }
             .pickerStyle(.wheel).frame(maxWidth: .infinity).frame(height: 110)
         }
+        .disabled(isActive)
+        .opacity(isActive ? 0.5 : 1)
     }
 
     private var typeBlurb: String {
@@ -179,9 +236,22 @@ struct BlockEditorView: View {
         }
     }
 
+    private var storedBlock: BlockRule? { blockStore.block(id: blockID) }
+
+    /// Active per the shared SSOT (manual/tag enable, scheduled run, or usage
+    /// lock) — always judged from the *stored* block, not in-editor state.
     private var isActive: Bool {
-        schedulingManager.activeScheduledBlockIDs.contains(blockID)
-            || usageLimitManager.activeUsageLockBlockIDs.contains(blockID)
+        storedBlock.map { screenTimeManager.isBlockActive($0) } ?? false
+    }
+
+    private var storedGroupIDs: Set<UUID> { Set(storedBlock?.appGroupIDs ?? []) }
+
+    private var storedCooldownMinutes: Int { storedBlock?.cooldownMinutes ?? 5 }
+
+    private var noCooldownExplainer: String {
+        storedBlock?.type == .tag
+            ? "This block is set to “No early disable” — it can't be turned off here. Tap your tag to toggle it off."
+            : "This block is set to “No early disable” — it can't be turned off until its schedule window or lockout ends."
     }
 
     private func toggleGroup(_ id: UUID) {
@@ -214,7 +284,27 @@ struct BlockEditorView: View {
 
     private func save() {
         guard hasLoaded, var block = blockStore.block(id: blockID) else { dismiss(); return }
+
+        // Defense-in-depth: while the block is active, only strengthening edits
+        // survive, even if the UI locks were somehow bypassed (stale state, a
+        // block going active while the editor was open, ...).
+        let wasActive = screenTimeManager.isBlockActive(block)
+        if wasActive {
+            type = block.type
+            schedule = block.schedule
+            if let limit = block.usageLimitMinutes { usageLimitMinutes = limit }
+            usageLockMinutes = block.usageLockMinutes
+            cooldownMinutes = block.cooldownMinutes
+            groupIDs.formUnion(block.appGroupIDs)
+            isEnabled = block.isEnabled || isEnabled
+        }
+
         let prevType = block.type
+        let prevSchedule = block.schedule
+        let prevLimit = block.usageLimitMinutes
+        let prevLock = block.usageLockMinutes
+        let prevGroupIDs = Set(block.appGroupIDs)
+
         block.name = name.isEmpty ? "Untitled" : name
         block.type = type
         block.appGroupIDs = Array(groupIDs)
@@ -226,16 +316,24 @@ struct BlockEditorView: View {
         blockStore.update(block)
         blockStore.flush()
 
-        // (Re)register monitors for the (possibly changed) type.
+        // (Re)register monitors for the (possibly changed) type. Skip when nothing
+        // the monitor depends on changed and the block is mid-run: applySchedule
+        // tears down first (clearing the running flag mid-window), so a no-op Save
+        // on an active block must not re-register — that was a two-Save bypass.
         if prevType == .schedule && type != .schedule {
             schedulingManager.removeSchedule(for: block)
         }
         if prevType == .timer && type != .timer {
             usageLimitManager.removeUsageLimit(for: block)
         }
+        let scheduleChanged = prevType != type || prevSchedule != block.schedule
+        let limitsChanged = prevType != type
+            || prevLimit != block.usageLimitMinutes
+            || prevLock != block.usageLockMinutes
+            || prevGroupIDs != Set(block.appGroupIDs)
         switch type {
-        case .schedule: schedulingManager.applySchedule(for: block)
-        case .timer:    usageLimitManager.applyUsageLimit(for: block, forceReset: true)
+        case .schedule: if scheduleChanged || !wasActive { schedulingManager.applySchedule(for: block) }
+        case .timer:    if limitsChanged || !wasActive { usageLimitManager.applyUsageLimit(for: block, forceReset: true) }
         case .tag:      break
         }
 
@@ -253,10 +351,18 @@ struct BlockEditorView: View {
     }
 
     private func deleteBlock() {
-        if let block = blockStore.block(id: blockID) {
-            schedulingManager.removeSchedule(for: block)
-            usageLimitManager.removeUsageLimit(for: block)
+        guard let block = blockStore.block(id: blockID) else {
+            blockStore.delete(id: blockID)
+            dismiss()
+            return
         }
+        // Backstop for the UI gate: never tear down an active block.
+        guard !screenTimeManager.isBlockActive(block) else {
+            showActiveDeleteAlert = true
+            return
+        }
+        schedulingManager.removeSchedule(for: block)
+        usageLimitManager.removeUsageLimit(for: block)
         screenTimeManager.clearBlockShield(id: blockID)
         blockStore.delete(id: blockID)
         dismiss()

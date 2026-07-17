@@ -74,7 +74,7 @@ struct CooldownView: View {
                     .font(.system(.title2, design: .default).weight(.bold))
                     .foregroundColor(ArtNouveauTheme.label)
                     .multilineTextAlignment(.center)
-                Text("Wait out the cooldown to release the block.")
+                Text("Wait out the cooldown, then release the block.")
                     .font(.system(.subheadline, design: .default))
                     .foregroundColor(ArtNouveauTheme.secondaryLabel)
                     .multilineTextAlignment(.center)
@@ -107,11 +107,27 @@ struct CooldownView: View {
             Label("Closing this screen cancels the cooldown.", systemImage: "info.circle")
                 .font(.system(.caption, design: .default))
                 .foregroundColor(ArtNouveauTheme.secondaryLabel)
-            Label("The schedule remains active — the next interval will re-block.", systemImage: "calendar")
+            Label(afterReleaseText, systemImage: afterReleaseIcon)
                 .font(.system(.caption, design: .default))
                 .foregroundColor(ArtNouveauTheme.secondaryLabel)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var afterReleaseText: String {
+        switch block?.type {
+        case .timer: return "The usage limit stays active — a fresh budget starts after release."
+        case .tag:   return "The block stays off until you tap your tag again."
+        default:     return "The schedule stays active — the next window will re-block."
+        }
+    }
+
+    private var afterReleaseIcon: String {
+        switch block?.type {
+        case .timer: return "hourglass"
+        case .tag:   return "sensor.tag.radiowaves.forward"
+        default:     return "calendar"
+        }
     }
 
     private var actions: some View {
@@ -145,6 +161,12 @@ struct CooldownView: View {
         // If a cooldown for this block is already running, leave it alone.
         if cooldown.activeCooldown?.blockID == blockID { return }
         let minutes = block?.cooldownMinutes ?? 5
+        // "No cooldown" blocks have no early-disable path at all — this sheet
+        // should be unreachable for them; dismiss without releasing anything.
+        guard minutes > 0 else {
+            isPresented = false
+            return
+        }
         cooldown.start(for: blockID, minutes: minutes)
     }
 }

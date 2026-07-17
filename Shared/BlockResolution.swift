@@ -23,7 +23,12 @@ enum BlockResolution {
         var apps: Set<ApplicationToken>
         var categories: Set<ActivityCategoryToken>
         var webDomains: Set<WebDomainToken>
+        /// Typed-in website domains (strings), enforced via `webContent.blockedByFilter`.
+        var domains: Set<String>
 
+        /// Token-only emptiness — deliberately excludes `domains`: the sole caller
+        /// gates `DeviceActivityEvent` creation, and usage counting can only watch
+        /// tokens, never typed-in domains.
         var isEmpty: Bool { apps.isEmpty && categories.isEmpty && webDomains.isEmpty }
     }
 
@@ -32,13 +37,15 @@ enum BlockResolution {
         var apps: Set<ApplicationToken> = []
         var categories: Set<ActivityCategoryToken> = []
         var webDomains: Set<WebDomainToken> = []
+        var domains: Set<String> = []
         let referenced = block.appGroupIDs
         for group in groups where referenced.contains(group.id) {
             apps.formUnion(group.selection.applicationTokens)
             categories.formUnion(group.selection.categoryTokens)
             webDomains.formUnion(group.selection.webDomainTokens)
+            domains.formUnion(group.blockedWebDomains)
         }
-        return Tokens(apps: apps, categories: categories, webDomains: webDomains)
+        return Tokens(apps: apps, categories: categories, webDomains: webDomains, domains: domains)
     }
 
     // MARK: - Shared-store loaders (used by app + extension)

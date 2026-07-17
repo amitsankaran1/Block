@@ -94,11 +94,9 @@ struct BlockListView: View {
     }
 
     private func isActive(_ block: BlockRule) -> Bool {
-        switch block.type {
-        case .schedule: return schedulingManager.activeScheduledBlockIDs.contains(block.id) || block.isEnabled
-        case .timer:    return usageLimitManager.activeUsageLockBlockIDs.contains(block.id) || block.isEnabled
-        case .tag:      return block.isEnabled
-        }
+        // schedulingManager/usageLimitManager stay observed above so their
+        // published sets invalidate this view when active state changes.
+        ScreenTimeManager.shared.isBlockActive(block)
     }
 
     private func subtitle(for block: BlockRule) -> String {
