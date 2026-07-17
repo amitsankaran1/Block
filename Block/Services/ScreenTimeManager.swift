@@ -4,9 +4,10 @@
 //
 //  Created by Amit Sankaran on 1/7/26.
 //
-//  Every block — scheduled, timer, or NFC tag — applies through its own
-//  `ManagedSettingsStore(named: "block.<UUID>")` pair (apps + categories). iOS
-//  unions shields across stores, so blocks never clobber each other.
+//  Every block — scheduled, timer, or NFC tag — applies through its own set of
+//  `ManagedSettingsStore(named: "block.<UUID>"...)` stores (chunked apps +
+//  categories; see BlockingActuator). iOS unions shields across stores, so
+//  blocks never clobber each other.
 //
 
 import Foundation
@@ -19,8 +20,6 @@ class ScreenTimeManager: ObservableObject {
     static let shared = ScreenTimeManager()
 
     @Published var authorizationStatus: AuthorizationStatus = .notDetermined
-
-    private var blockStores: [UUID: (apps: ManagedSettingsStore, categories: ManagedSettingsStore)] = [:]
 
     private init() {
         checkAuthorizationStatus()
@@ -61,19 +60,11 @@ class ScreenTimeManager: ObservableObject {
         restoreBlockingIfNeeded()
     }
 
-    // MARK: - Per-block named stores
-
-    private func stores(for id: UUID) -> (apps: ManagedSettingsStore, categories: ManagedSettingsStore) {
-        if let existing = blockStores[id] { return existing }
-        let pair = (
-            apps: ManagedSettingsStore(named: BlockingActuator.appsStoreName(for: id)),
-            categories: ManagedSettingsStore(named: BlockingActuator.categoriesStoreName(for: id))
-        )
-        blockStores[id] = pair
-        return pair
-    }
+    // MARK: - Per-block shields
 
     /// Apply a block's shield (union of its groups' tokens) to its named stores.
+    /// Resolves against the in-memory `AppGroupStore` (which can be ahead of the
+    /// persisted copy the extension reads), then defers to BlockingActuator.
     func applyBlockShield(_ block: BlockRule) {
         guard authorizationStatus == .approved else {
             #if DEBUG
@@ -81,19 +72,17 @@ class ScreenTimeManager: ObservableObject {
             #endif
             return
         }
-        let pair = stores(for: block.id)
         let tokens = BlockResolution.tokens(for: block, groups: AppGroupStore.shared.groups)
-        BlockingActuator.apply(tokens: tokens, appsStore: pair.apps, categoriesStore: pair.categories)
+        BlockingActuator.apply(tokens: tokens, blockID: block.id)
         #if DEBUG
-        DebugLog.shared.log(.screenTime, "applyBlockShield(\(block.name)): \(tokens.apps.count) apps, \(tokens.categories.count) categories")
+        let chunkCount = SharedDefaults.suite.integer(forKey: SharedDefaults.Keys.shieldChunkCount(blockID: block.id))
+        DebugLog.shared.log(.screenTime, "applyBlockShield(\(block.name)): \(tokens.apps.count) apps + \(tokens.webDomains.count) domains → \(chunkCount) chunk store(s), \(tokens.categories.count) categories")
         #endif
     }
 
     /// Clear a block's shield (cooldown completion, manual disable, tag toggle-off).
     func clearBlockShield(id: UUID) {
-        let pair = stores(for: id)
-        pair.apps.clearAllSettings()
-        pair.categories.clearAllSettings()
+        BlockingActuator.clearShields(blockID: id)
         #if DEBUG
         DebugLog.shared.log(.screenTime, "clearBlockShield for \(id.uuidString.prefix(8))")
         #endif
