@@ -123,6 +123,14 @@ struct DebugMenuView: View {
             let secs = Int(endsAt.timeIntervalSinceNow)
             row("Cooldown ends in", value: secs > 0 ? "\(secs)s" : "expired")
         }
+        if block.type != .timer {
+            row("Break minutes", value: block.breakMinutes == 0 ? "off" : "\(block.breakMinutes)")
+            row("Break used", value: block.breakUsed ? "YES" : "no")
+        }
+        if let endsAt = block.breakEndsAt {
+            let secs = Int(endsAt.timeIntervalSinceNow)
+            row("Break ends in", value: secs > 0 ? "\(secs)s" : "expired")
+        }
         if block.type == .timer {
             row("Usage limit", value: block.usageLimitMinutes.map { "\($0) min → lock \(block.usageLockMinutes)m" } ?? "off")
         }
@@ -152,6 +160,39 @@ struct DebugMenuView: View {
             Button("Expire usage lock") {
                 DebugSimulator.expireUsageLock(blockID: block.id)
             }
+        }
+        if block.type != .timer && block.breakMinutes > 0 && block.breakEndsAt == nil {
+            Button("Start break now") {
+                DebugSimulator.startBreak(blockID: block.id)
+            }
+        }
+        if block.breakEndsAt != nil {
+            Button("Expire break now") {
+                DebugSimulator.expireBreak(blockID: block.id)
+            }
+        }
+
+        // Shield inspector: live readback of every store this block occupies.
+        // "chunkN apps X, web Y · cats Z" should match the selection; a dropped
+        // property (the silent >50-token failure) reads back as 0.
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Shield store readback")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(BlockingActuator.audit(blockID: block.id))
+                .font(.caption.monospaced())
+            if let audit = block.shieldAudit {
+                Text("Last apply: \(audit)")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(audit.hasPrefix("MISMATCH") ? Color.red : Color.secondary)
+            }
+        }
+        .padding(.vertical, 2)
+        Button("Re-apply shield WITHOUT categories store") {
+            DebugSimulator.reapplyShield(blockID: block.id, includeCategories: false)
+        }
+        Button("Re-apply full shield") {
+            DebugSimulator.reapplyShield(blockID: block.id, includeCategories: true)
         }
     }
 

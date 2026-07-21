@@ -16,16 +16,30 @@ struct HomeView: View {
     @StateObject private var schedulingManager = SchedulingManager.shared
     @StateObject private var usageLimitManager = UsageLimitManager.shared
     @StateObject private var configStore = AppConfigurationStore.shared
+    @StateObject private var breakManager = BreakManager.shared
     @State private var showSettings = false
 
+    /// Blocks whose shield is lifted for a break right now. They stay out of the
+    /// "active" groups below — the shield really is down — but get their own
+    /// "On break" group so the state is never invisible.
+    private var onBreakBlocks: [BlockRule] {
+        blockStore.blocks.filter { breakManager.isOnBreak(blockID: $0.id) }
+    }
     private var activeScheduledBlocks: [BlockRule] {
-        blockStore.blocks.filter { schedulingManager.activeScheduledBlockIDs.contains($0.id) }
+        blockStore.blocks.filter {
+            schedulingManager.activeScheduledBlockIDs.contains($0.id) && !breakManager.isOnBreak(blockID: $0.id)
+        }
     }
     private var activeUsageLockBlocks: [BlockRule] {
         blockStore.blocks.filter { usageLimitManager.activeUsageLockBlockIDs.contains($0.id) }
     }
-    private var activeTagBlocks: [BlockRule] {
+    /// Tag blocks toggled on — drives the NFC action button (a tag block on break
+    /// is still "on"; the next tap turns it off).
+    private var enabledTagBlocks: [BlockRule] {
         blockStore.blocks.filter { $0.type == .tag && $0.isEnabled }
+    }
+    private var activeTagBlocks: [BlockRule] {
+        enabledTagBlocks.filter { !breakManager.isOnBreak(blockID: $0.id) }
     }
     private var anyShieldActive: Bool {
         !activeScheduledBlocks.isEmpty || !activeUsageLockBlocks.isEmpty || !activeTagBlocks.isEmpty
@@ -118,6 +132,8 @@ struct HomeView: View {
                          labels: activeUsageLockBlocks.map { usageLockLabel(for: $0) })
             capsuleGroup("Tag on", color: ArtNouveauTheme.primary, icon: "sensor.tag.radiowaves.forward.fill",
                          labels: activeTagBlocks.map { $0.name })
+            capsuleGroup("On break", color: ArtNouveauTheme.success, icon: "cup.and.saucer.fill",
+                         labels: onBreakBlocks.map { breakLabel(for: $0) })
         }
     }
 
@@ -145,6 +161,12 @@ struct HomeView: View {
         let mins = max(0, Int(endsAt.timeIntervalSinceNow / 60))
         let suffix = mins >= 60 ? "\(mins / 60)h \(mins % 60)m" : "\(mins)m"
         return "\(block.name) · \(suffix)"
+    }
+
+    private func breakLabel(for block: BlockRule) -> String {
+        guard let endsAt = BreakMonitoring.breakEnd(blockID: block.id) else { return block.name }
+        let secs = max(0, Int(endsAt.timeIntervalSinceNow))
+        return "\(block.name) · \(String(format: "%d:%02d", secs / 60, secs % 60))"
     }
 
     // MARK: - Action area
@@ -175,10 +197,10 @@ struct HomeView: View {
                                     .font(.system(size: 34, weight: .semibold)).foregroundColor(.white)
                                     .symbolRenderingMode(.hierarchical)
                             }
-                            Text(activeTagBlocks.isEmpty ? "Start Blocking" : "Stop Blocking")
+                            Text(enabledTagBlocks.isEmpty ? "Start Blocking" : "Stop Blocking")
                                 .font(.system(.title2, design: .default).weight(.bold))
                                 .foregroundColor(ArtNouveauTheme.label)
-                            Text("Tap your tag to \(activeTagBlocks.isEmpty ? "enable" : "disable") your tag blocks")
+                            Text("Tap your tag to \(enabledTagBlocks.isEmpty ? "enable" : "disable") your tag blocks")
                                 .font(.system(.subheadline, design: .default).weight(.medium))
                                 .foregroundColor(ArtNouveauTheme.secondaryLabel)
                                 .multilineTextAlignment(.center)

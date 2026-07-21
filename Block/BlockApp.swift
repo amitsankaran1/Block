@@ -34,6 +34,7 @@ struct BlockApp: App {
                     UsageLimitManager.shared.reapplyAllUsageLimits()
                     UsageLimitManager.shared.reconcileExpiredLocks()
                     CooldownManager.shared.restoreActiveCooldownsIfAny()
+                    BreakManager.shared.restoreActiveBreaksIfAny()
                     #if DEBUG
                     TestHarness.seedDemoStateIfRequested()
                     TestHarness.runIfEnabled()
