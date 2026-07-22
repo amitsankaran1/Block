@@ -22,11 +22,15 @@ struct AppGroupListView: View {
                         .foregroundColor(ArtNouveauTheme.secondaryLabel)
                         .padding(.vertical, 8)
                 } else {
-                    ForEach(groupStore.groups) { group in
-                        Button { editingGroupID = group.id } label: {
-                            row(for: group)
+                    Section {
+                        ForEach(groupStore.groups) { group in
+                            Button { editingGroupID = group.id } label: {
+                                row(for: group)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
+                    } footer: {
+                        Text("Lists are snapshots. Choosing a whole category captures the apps installed now — apps added later aren't blocked until you open the list and save it again.")
                     }
                 }
             }
@@ -66,7 +70,10 @@ struct AppGroupListView: View {
                 Text(countSummary(apps: appCount, cats: catCount) + " · used by \(used) block\(used == 1 ? "" : "s")")
                     .font(.system(.caption, design: .default))
                     .foregroundColor(ArtNouveauTheme.secondaryLabel)
-            }
+                Text("Updated \(group.updatedAt.formatted(date: .abbreviated, time: .omitted))")
+                    .font(.system(.caption2, design: .default))
+                    .foregroundColor(ArtNouveauTheme.tertiaryLabel)
+}
             Spacer()
             Image(systemName: "chevron.right").font(.caption).foregroundColor(ArtNouveauTheme.tertiaryLabel)
         }

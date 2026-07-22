@@ -43,7 +43,9 @@ class AppGroupStore: ObservableObject {
 
     func update(_ group: AppGroup) {
         guard let idx = groups.firstIndex(where: { $0.id == group.id }) else { return }
-        groups[idx] = group
+        var stamped = group
+        stamped.updatedAt = Date()
+        groups[idx] = stamped
         save()
     }
 

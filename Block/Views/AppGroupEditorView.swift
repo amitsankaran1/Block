@@ -20,7 +20,14 @@ struct AppGroupEditorView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var name: String = ""
-    @State private var selection = FamilyActivitySelection()
+    // `includeEntireCategory: true` makes the picker expand a whole-category pick
+    // into its individual app tokens, so unchecking an app actually removes it.
+    // With the default (`false`) a category is one opaque token and iOS never
+    // reports the apps the user deselected within it — the long-standing bug where
+    // "select category, uncheck a few" left the unchecked apps blocked. Trade-off:
+    // the selection is a snapshot of apps installed at save time (see the Lists
+    // page "Updated" nudge).
+    @State private var selection = FamilyActivitySelection(includeEntireCategory: true)
     @State private var blockedDomains: [String] = []
     @State private var newDomain: String = ""
     @State private var showPicker = false
@@ -182,7 +189,11 @@ struct AppGroupEditorView: View {
     private func loadIfNeeded() {
         guard !hasLoaded, let group = groupStore.group(id: groupID) else { return }
         name = group.name
-        selection = group.selection
+        // Assigning the decoded selection would carry its stored flag; re-pin it so
+        // editing an existing list keeps app-level granularity (old lists decoded
+        // `false` and would otherwise silently regress to category-only blocking on
+        // re-save). The flag is init-only, so rebuild with the same tokens.
+        selection = group.selection.includingEntireCategory()
         blockedDomains = group.blockedWebDomains
         hasLoaded = true
     }
