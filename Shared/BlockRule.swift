@@ -35,6 +35,10 @@ struct BlockRule: Identifiable, Codable, Equatable {
     /// usage lockout ends, via the NFC tag for tag blocks, or via the emergency
     /// override).
     var cooldownMinutes: Int
+    /// Length of the single break allowed per activation (schedule window / tag
+    /// session), in minutes. `0` — the default — means no breaks. Meaningful for
+    /// `.schedule` and `.tag` blocks only; `.timer` lockouts never offer breaks.
+    var breakMinutes: Int
     /// When `type == .schedule`.
     var schedule: BlockingSchedule?
     /// Cumulative daily usage budget in minutes (when `type == .timer`).
@@ -50,6 +54,7 @@ struct BlockRule: Identifiable, Codable, Equatable {
         appGroupIDs: [UUID] = [],
         isEnabled: Bool = false,
         cooldownMinutes: Int = 5,
+        breakMinutes: Int = 0,
         schedule: BlockingSchedule? = nil,
         usageLimitMinutes: Int? = nil,
         usageLockMinutes: Int = 180,
@@ -61,6 +66,7 @@ struct BlockRule: Identifiable, Codable, Equatable {
         self.appGroupIDs = appGroupIDs
         self.isEnabled = isEnabled
         self.cooldownMinutes = cooldownMinutes
+        self.breakMinutes = breakMinutes
         self.schedule = schedule
         self.usageLimitMinutes = usageLimitMinutes
         self.usageLockMinutes = usageLockMinutes
@@ -73,6 +79,7 @@ struct BlockRule: Identifiable, Codable, Equatable {
             && lhs.type == rhs.type
             && lhs.isEnabled == rhs.isEnabled
             && lhs.cooldownMinutes == rhs.cooldownMinutes
+            && lhs.breakMinutes == rhs.breakMinutes
         let b = lhs.schedule == rhs.schedule
             && lhs.usageLimitMinutes == rhs.usageLimitMinutes
             && lhs.usageLockMinutes == rhs.usageLockMinutes
@@ -83,7 +90,7 @@ struct BlockRule: Identifiable, Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case id, name, type, appGroupIDs, isEnabled, schedule, cooldownMinutes
-        case usageLimitMinutes, usageLockMinutes, createdAt
+        case breakMinutes, usageLimitMinutes, usageLockMinutes, createdAt
     }
 
     init(from decoder: Decoder) throws {
@@ -95,6 +102,7 @@ struct BlockRule: Identifiable, Codable, Equatable {
         isEnabled = try c.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? false
         schedule = try c.decodeIfPresent(BlockingSchedule.self, forKey: .schedule)
         cooldownMinutes = try c.decodeIfPresent(Int.self, forKey: .cooldownMinutes) ?? 5
+        breakMinutes = try c.decodeIfPresent(Int.self, forKey: .breakMinutes) ?? 0
         usageLimitMinutes = try c.decodeIfPresent(Int.self, forKey: .usageLimitMinutes)
         usageLockMinutes = try c.decodeIfPresent(Int.self, forKey: .usageLockMinutes) ?? 180
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
@@ -109,6 +117,7 @@ struct BlockRule: Identifiable, Codable, Equatable {
         try c.encode(isEnabled, forKey: .isEnabled)
         try c.encodeIfPresent(schedule, forKey: .schedule)
         try c.encode(cooldownMinutes, forKey: .cooldownMinutes)
+        try c.encode(breakMinutes, forKey: .breakMinutes)
         try c.encodeIfPresent(usageLimitMinutes, forKey: .usageLimitMinutes)
         try c.encode(usageLockMinutes, forKey: .usageLockMinutes)
         try c.encode(createdAt, forKey: .createdAt)

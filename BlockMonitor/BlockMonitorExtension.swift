@@ -5,17 +5,19 @@
 //  DeviceActivityMonitor extension. Runs out-of-process when iOS triggers a scheduled
 //  interval or a usage threshold.
 //
-//  Activity names (see SchedulingManager / UsageMonitoring):
+//  Activity names (see SchedulingManager / UsageMonitoring / BreakMonitoring):
 //    - "block.<UUID>" / ".early" / ".late"  → time-of-day scheduled block
 //    - "usage.<UUID>"                        → all-day usage counting window
 //    - "lock.<UUID>"                         → one-shot usage lockout window
+//    - "break.<UUID>"                        → one-shot break window (shield lifted)
 //
 //  Required target setup (do in Xcode UI):
 //    - Target: BlockMonitor (Device Activity Monitor Extension template)
 //    - Embed in host app: Block
 //    - Capabilities on this target: Family Controls, App Groups (group.com.amitsankaran.Block)
 //    - Target membership for the Shared/ files (SharedDefaults, BlockRule, AppGroup,
-//      BlockingSchedule, BlockingActuator, UsageMonitoring, BlockResolution): tick BOTH targets.
+//      BlockingSchedule, BlockingActuator, UsageMonitoring, BreakMonitoring,
+//      BlockResolution): tick BOTH targets.
 //
 
 import DeviceActivity
@@ -24,9 +26,10 @@ import Foundation
 class BlockMonitorExtension: DeviceActivityMonitor {
 
     private enum ActivityKind {
-        case schedule   // block.<UUID> (and .early/.late) — time-of-day block
-        case usage      // usage.<UUID> — cumulative counting window
-        case lock       // lock.<UUID> — one-shot usage lockout window
+        case schedule    // block.<UUID> (and .early/.late) — time-of-day block
+        case usage       // usage.<UUID> — cumulative counting window
+        case lock        // lock.<UUID> — one-shot usage lockout window
+        case breakWindow // break.<UUID> — one-shot break window (shield lifted)
     }
 
     override func intervalDidStart(for activity: DeviceActivityName) {
@@ -41,6 +44,8 @@ class BlockMonitorExtension: DeviceActivityMonitor {
             BlockingActuator.start(blockID: blockID, bypassWeekday: true, setRunningFlag: false)
         case .usage:
             break // counting window only — never shields on its own.
+        case .breakWindow:
+            break // the app already lifted the shield when the break started.
         }
     }
 
@@ -58,6 +63,10 @@ class BlockMonitorExtension: DeviceActivityMonitor {
             UsageMonitoring.startUsageMonitor(forBlockID: blockID)
         case .usage:
             break // all-day window auto-restarts (repeats: true); counter resets.
+        case .breakWindow:
+            // Break over — re-shield, but only if the block is still logically on
+            // (endBreak checks; a window that ended mid-break stays released).
+            BreakMonitoring.endBreak(blockID: blockID, reapply: true)
         }
     }
 
@@ -89,6 +98,9 @@ class BlockMonitorExtension: DeviceActivityMonitor {
         } else if raw.hasPrefix("lock.") {
             kind = .lock
             rest = raw.dropFirst("lock.".count)
+        } else if raw.hasPrefix("break.") {
+            kind = .breakWindow
+            rest = raw.dropFirst("break.".count)
         } else {
             return nil
         }

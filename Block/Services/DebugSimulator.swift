@@ -81,6 +81,44 @@ enum DebugSimulator {
         DebugLog.shared.log(.cooldown, "started \(seconds)s cooldown for block \(blockID.uuidString.prefix(8))")
     }
 
+    // MARK: - Break simulation
+
+    /// Start the block's break exactly as the UI button would.
+    static func startBreak(blockID: UUID) {
+        guard let block = BlockStore.shared.block(id: blockID) else {
+            DebugLog.shared.log(.actuator, "startBreak: block missing \(blockID.uuidString.prefix(8))")
+            return
+        }
+        BreakManager.shared.start(for: block)
+    }
+
+    /// Fast-forward the active break to its end (what the extension's one-shot
+    /// window / the tick timer would do).
+    static func expireBreak(blockID: UUID) {
+        SharedDefaults.suite.set(Date(), forKey: SharedDefaults.Keys.breakEnd(blockID: blockID))
+        if BreakManager.shared.activeBreak?.blockID == blockID {
+            BreakManager.shared.endActiveBreak()
+        } else {
+            BreakMonitoring.endBreak(blockID: blockID, reapply: true)
+        }
+        DebugLog.shared.log(.actuator, "expired break for \(blockID.uuidString.prefix(8))")
+    }
+
+    // MARK: - Shield diagnostics
+
+    /// Re-apply the block's shield with or without the categories store — the
+    /// on-device isolation test for "categories suppress sibling app shields".
+    static func reapplyShield(blockID: UUID, includeCategories: Bool) {
+        BlockStore.shared.flush()
+        AppGroupStore.shared.flush()
+        guard let tokens = BlockResolution.tokens(forBlockID: blockID) else {
+            DebugLog.shared.log(.actuator, "reapplyShield: block missing \(blockID.uuidString.prefix(8))")
+            return
+        }
+        BlockingActuator.apply(tokens: tokens, blockID: blockID, includeCategories: includeCategories)
+        DebugLog.shared.log(.actuator, "reapplyShield(\(includeCategories ? "full" : "NO cats")) → \(BlockingActuator.audit(blockID: blockID))")
+    }
+
     // MARK: - Usage-limit simulation
 
     static func fireUsageThreshold(blockID: UUID) {
@@ -108,6 +146,7 @@ enum DebugSimulator {
     static func resetAllRuntime() {
         let suite = SharedDefaults.suite
         for block in BlockStore.shared.blocks {
+            BreakManager.shared.cancelIfActive(blockID: block.id)
             BlockingActuator.clearShields(blockID: block.id)
             suite.removeObject(forKey: SharedDefaults.Keys.running(blockID: block.id))
             suite.removeObject(forKey: SharedDefaults.Keys.cooldownEnd(blockID: block.id))
@@ -134,9 +173,13 @@ enum DebugSimulator {
         let isScheduledRunning: Bool
         let cooldownEndsAt: Date?
         let cooldownMinutes: Int
+        let breakMinutes: Int
+        let breakUsed: Bool
+        let breakEndsAt: Date?
         let usageLimitMinutes: Int?
         let usageLockMinutes: Int
         let usageLockEndsAt: Date?
+        let shieldAudit: String?
     }
 
     struct GlobalSnapshot {
@@ -166,9 +209,13 @@ enum DebugSimulator {
                 isScheduledRunning: suite.bool(forKey: SharedDefaults.Keys.running(blockID: block.id)),
                 cooldownEndsAt: suite.object(forKey: SharedDefaults.Keys.cooldownEnd(blockID: block.id)) as? Date,
                 cooldownMinutes: block.cooldownMinutes,
+                breakMinutes: block.breakMinutes,
+                breakUsed: suite.bool(forKey: SharedDefaults.Keys.breakUsed(blockID: block.id)),
+                breakEndsAt: suite.object(forKey: SharedDefaults.Keys.breakEnd(blockID: block.id)) as? Date,
                 usageLimitMinutes: block.usageLimitMinutes,
                 usageLockMinutes: block.usageLockMinutes,
-                usageLockEndsAt: suite.object(forKey: SharedDefaults.Keys.usageLockEnd(blockID: block.id)) as? Date
+                usageLockEndsAt: suite.object(forKey: SharedDefaults.Keys.usageLockEnd(blockID: block.id)) as? Date,
+                shieldAudit: suite.string(forKey: SharedDefaults.Keys.shieldAudit(blockID: block.id))
             )
         }
 

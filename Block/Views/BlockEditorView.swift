@@ -16,6 +16,7 @@ struct BlockEditorView: View {
     @StateObject private var schedulingManager = SchedulingManager.shared
     @StateObject private var usageLimitManager = UsageLimitManager.shared
     @StateObject private var screenTimeManager = ScreenTimeManager.shared
+    @StateObject private var breakManager = BreakManager.shared
     @Environment(\.dismiss) private var dismiss
 
     @State private var name = ""
@@ -23,16 +24,19 @@ struct BlockEditorView: View {
     @State private var groupIDs: Set<UUID> = []
     @State private var schedule: BlockingSchedule?
     @State private var cooldownMinutes = 5
+    @State private var breakMinutes = 0
     @State private var usageLimitMinutes = 30
     @State private var usageLockMinutes = 180
     @State private var isEnabled = false
 
     @State private var showCooldown = false
+    @State private var showBreak = false
     @State private var showDeleteConfirm = false
     @State private var showActiveDeleteAlert = false
     @State private var hasLoaded = false
 
     static let cooldownOptions: [Int] = [0, 1, 2, 3, 5, 10, 15, 20, 30, 45, 60]
+    static let breakOptions: [Int] = [0, 5, 10, 15, 20, 30]
     static let usageLimitOptions: [Int] = [15, 30, 45, 60, 90, 120]
     static let usageLockOptions: [Int] = [30, 60, 120, 180, 240, 360]
 
@@ -98,6 +102,7 @@ struct BlockEditorView: View {
 
             if isActive {
                 Section {
+                    breakActionRow
                     if storedCooldownMinutes == 0 {
                         Label(noCooldownExplainer, systemImage: "lock.fill")
                             .font(.system(.caption, design: .default))
@@ -134,6 +139,9 @@ struct BlockEditorView: View {
         }
         .sheet(isPresented: $showCooldown) {
             CooldownView(blockID: blockID, isPresented: $showCooldown)
+        }
+        .sheet(isPresented: $showBreak) {
+            BreakView(blockID: blockID, isPresented: $showBreak)
         }
         .onChange(of: showCooldown) { showing in
             // A release inside the sheet flips the stored isEnabled off; re-sync so
@@ -177,6 +185,7 @@ struct BlockEditorView: View {
                 .disabled(isActive)
                 .opacity(isActive ? 0.5 : 1)
                 cooldownPicker
+                breakPicker
             }
         case .timer:
             Section("Usage limit") {
@@ -192,6 +201,7 @@ struct BlockEditorView: View {
                     .font(.system(.caption, design: .default))
                     .foregroundColor(ArtNouveauTheme.secondaryLabel)
                 cooldownPicker
+                breakPicker
             }
         }
     }
@@ -212,6 +222,55 @@ struct BlockEditorView: View {
         // "None") and re-saving would be a bypass.
         .disabled(isActive)
         .opacity(isActive ? 0.5 : 1)
+    }
+
+    private var breakPicker: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Breaks").foregroundColor(ArtNouveauTheme.label)
+            Text(breakMinutes == 0
+                 ? "No breaks while the block is active"
+                 : "One \(breakMinutes) min break per \(type == .tag ? "tag session" : "window")")
+                .font(.system(.caption, design: .default)).foregroundColor(ArtNouveauTheme.secondaryLabel)
+            Picker("Breaks", selection: $breakMinutes) {
+                ForEach(Self.breakOptions, id: \.self) { Text($0 == 0 ? "No breaks" : "\($0) min").tag($0) }
+            }
+            .pickerStyle(.wheel).frame(maxWidth: .infinity).frame(height: 110)
+        }
+        // Locked while active — allowing a longer (or first) break mid-run would
+        // weaken the block, same rule as the cooldown.
+        .disabled(isActive)
+        .opacity(isActive ? 0.5 : 1)
+    }
+
+    /// "Take a break" affordance while the block is active. Timer blocks never
+    /// offer breaks; their lockout already auto-expires.
+    @ViewBuilder
+    private var breakActionRow: some View {
+        if let block = storedBlock, block.type != .timer, block.breakMinutes > 0 {
+            if breakManager.isOnBreak(blockID: blockID) {
+                Button { showBreak = true } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "cup.and.saucer.fill")
+                        Text("On break — view countdown")
+                    }
+                    .foregroundColor(ArtNouveauTheme.success)
+                }
+            } else if breakManager.isBreakAvailable(for: block) {
+                Button { showBreak = true } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "cup.and.saucer")
+                        Text("Take a break (\(block.breakMinutes) min)")
+                    }
+                    .foregroundColor(ArtNouveauTheme.primary)
+                }
+            } else if BreakMonitoring.breakUsed(blockID: blockID) {
+                Label("Break already used — the next \(block.type == .tag ? "tag session" : "window") gets a fresh one.",
+                      systemImage: "cup.and.saucer")
+                    .font(.system(.caption, design: .default))
+                    .foregroundColor(ArtNouveauTheme.secondaryLabel)
+            }
+            // (No row while another block's break is running — one break at a time.)
+        }
     }
 
     private func wheel(_ title: String, _ caption: String, selection: Binding<Int>, options: [Int], label: @escaping (Int) -> String) -> some View {
@@ -274,6 +333,7 @@ struct BlockEditorView: View {
         groupIDs = Set(block.appGroupIDs)
         schedule = block.schedule
         cooldownMinutes = Self.cooldownOptions.min(by: { abs($0 - block.cooldownMinutes) < abs($1 - block.cooldownMinutes) }) ?? block.cooldownMinutes
+        breakMinutes = Self.breakOptions.min(by: { abs($0 - block.breakMinutes) < abs($1 - block.breakMinutes) }) ?? block.breakMinutes
         if let l = block.usageLimitMinutes {
             usageLimitMinutes = Self.usageLimitOptions.min(by: { abs($0 - l) < abs($1 - l) }) ?? l
         }
@@ -295,6 +355,7 @@ struct BlockEditorView: View {
             if let limit = block.usageLimitMinutes { usageLimitMinutes = limit }
             usageLockMinutes = block.usageLockMinutes
             cooldownMinutes = block.cooldownMinutes
+            breakMinutes = block.breakMinutes
             groupIDs.formUnion(block.appGroupIDs)
             isEnabled = block.isEnabled || isEnabled
         }
@@ -309,6 +370,7 @@ struct BlockEditorView: View {
         block.type = type
         block.appGroupIDs = Array(groupIDs)
         block.cooldownMinutes = cooldownMinutes
+        block.breakMinutes = (type == .timer) ? 0 : breakMinutes
         block.isEnabled = isEnabled
         block.schedule = (type == .schedule) ? schedule : nil
         block.usageLimitMinutes = (type == .timer) ? usageLimitMinutes : nil
@@ -339,6 +401,8 @@ struct BlockEditorView: View {
 
         // Manual on/off + live-shield refresh.
         if isEnabled {
+            // A fresh manual activation re-arms the one-break allowance.
+            if !wasActive { BreakMonitoring.resetAllowance(blockID: block.id) }
             screenTimeManager.applyBlockShield(block)
         } else {
             // Only clear if nothing else is keeping it up.

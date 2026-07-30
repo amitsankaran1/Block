@@ -60,6 +60,8 @@ class NFCManager: NSObject, ObservableObject {
             if anyOn {
                 ScreenTimeManager.shared.clearBlockShield(id: block.id)
             } else {
+                // A fresh tag session re-arms the one-break allowance.
+                BreakMonitoring.resetAllowance(blockID: block.id)
                 ScreenTimeManager.shared.applyBlockShield(block)
             }
         }

@@ -72,6 +72,15 @@ class ScreenTimeManager: ObservableObject {
             #endif
             return
         }
+        // Mid-break the shield must stay down — the break's re-lock (extension
+        // window / BreakManager) restores it. Without this, launch restore or a
+        // Save while on break would silently cut the break short.
+        guard !BreakMonitoring.isOnBreak(blockID: block.id) else {
+            #if DEBUG
+            DebugLog.shared.log(.screenTime, "applyBlockShield(\(block.name)) skipped — on break")
+            #endif
+            return
+        }
         let tokens = BlockResolution.tokens(for: block, groups: AppGroupStore.shared.groups)
         BlockingActuator.apply(tokens: tokens, blockID: block.id)
         #if DEBUG
@@ -81,7 +90,10 @@ class ScreenTimeManager: ObservableObject {
     }
 
     /// Clear a block's shield (cooldown completion, manual disable, tag toggle-off).
+    /// Releasing the block also ends any break on it — without re-shielding — so no
+    /// orphaned break window can re-lock a block the user already turned off.
     func clearBlockShield(id: UUID) {
+        BreakManager.shared.cancelIfActive(blockID: id)
         BlockingActuator.clearShields(blockID: id)
         #if DEBUG
         DebugLog.shared.log(.screenTime, "clearBlockShield for \(id.uuidString.prefix(8))")

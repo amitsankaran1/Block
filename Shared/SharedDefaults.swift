@@ -42,5 +42,15 @@ enum SharedDefaults {
         /// `Date` when the current usage-limit lockout auto-expires. Presence of a
         /// future date is the source of truth for "this block is usage-locked".
         static func usageLockEnd(blockID: UUID) -> String { "usagelock.\(blockID.uuidString)" }
+        /// `Date` when the current break auto-expires. Presence of a future date is
+        /// the source of truth for "this block is on a break" (shield lifted, block
+        /// still logically active — see BreakMonitoring).
+        static func breakEnd(blockID: UUID) -> String { "breakEnd.\(blockID.uuidString)" }
+        /// Set once a break has been taken in the current activation (schedule
+        /// window / tag session). Cleared when a fresh activation starts.
+        static func breakUsed(blockID: UUID) -> String { "breakUsed.\(blockID.uuidString)" }
+        /// Human-readable readback summary of the last shield apply — written by
+        /// BlockingActuator so silent shield drops are visible in the debug menu.
+        static func shieldAudit(blockID: UUID) -> String { "shieldAudit.\(blockID.uuidString)" }
     }
 }
