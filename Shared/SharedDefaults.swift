@@ -39,6 +39,10 @@ enum SharedDefaults {
         /// "block.<UUID>.apps.<i>". Missing key means at most the legacy chunk 0.
         static func shieldChunkCount(blockID: UUID) -> String { "shieldChunks.\(blockID.uuidString)" }
         static func running(blockID: UUID) -> String { "running.\(blockID.uuidString)" }
+        /// `Date` until which a schedule shield must stay down. Set when cooldown or
+        /// emergency lifts the shield mid-window, so relaunch does not put it back
+        /// before that window ends.
+        static func scheduleReleasedUntil(blockID: UUID) -> String { "scheduleReleasedUntil.\(blockID.uuidString)" }
         /// `Date` when the current usage-limit lockout auto-expires. Presence of a
         /// future date is the source of truth for "this block is usage-locked".
         static func usageLockEnd(blockID: UUID) -> String { "usagelock.\(blockID.uuidString)" }

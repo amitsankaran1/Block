@@ -379,9 +379,8 @@ struct BlockEditorView: View {
         blockStore.flush()
 
         // (Re)register monitors for the (possibly changed) type. Skip when nothing
-        // the monitor depends on changed and the block is mid-run: applySchedule
-        // tears down first (clearing the running flag mid-window), so a no-op Save
-        // on an active block must not re-register — that was a two-Save bypass.
+        // the monitor depends on changed and the block is mid-run: re-registering
+        // mid-window was a two-Save bypass.
         if prevType == .schedule && type != .schedule {
             schedulingManager.removeSchedule(for: block)
         }
@@ -394,7 +393,7 @@ struct BlockEditorView: View {
             || prevLock != block.usageLockMinutes
             || prevGroupIDs != Set(block.appGroupIDs)
         switch type {
-        case .schedule: if scheduleChanged || !wasActive { schedulingManager.applySchedule(for: block) }
+        case .schedule: if scheduleChanged || !wasActive { schedulingManager.applySchedule(for: block, restartMonitoring: scheduleChanged) }
         case .timer:    if limitsChanged || !wasActive { usageLimitManager.applyUsageLimit(for: block, forceReset: true) }
         case .tag:      break
         }

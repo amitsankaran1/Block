@@ -19,6 +19,13 @@
 			remoteGlobalIDString = BD0000000000000000000006;
 			remoteInfo = BlockMonitor;
 		};
+		BTST00000000000000000007 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BE92B2602F0F5EC400D1AD74 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BE92B2672F0F5EC400D1AD74;
+			remoteInfo = Block;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -38,6 +45,7 @@
 /* Begin PBXFileReference section */
 		BD0000000000000000000002 /* BlockMonitor.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BlockMonitor.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BE92B2682F0F5EC400D1AD74 /* Block.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Block.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BTST00000000000000000002 /* BlockTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BlockTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BEA309FD2F0F768700A5BA71 /* FamilyControls.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FamilyControls.framework; path = System/Library/Frameworks/FamilyControls.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -72,6 +80,11 @@
 			path = Shared;
 			sourceTree = "<group>";
 		};
+		BTST00000000000000000001 /* BlockTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = BlockTests;
+			sourceTree = "<group>";
+		};
 		BE92B26A2F0F5EC400D1AD74 /* Block */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -98,6 +111,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BTST00000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -107,6 +127,7 @@
 				BE92B26A2F0F5EC400D1AD74 /* Block */,
 				BD0000000000000000000004 /* BlockMonitor */,
 				BD0000000000000000000005 /* Shared */,
+				BTST00000000000000000001 /* BlockTests */,
 				BEA309FC2F0F768700A5BA71 /* Frameworks */,
 				BE92B2692F0F5EC400D1AD74 /* Products */,
 			);
@@ -117,6 +138,7 @@
 			children = (
 				BE92B2682F0F5EC400D1AD74 /* Block.app */,
 				BD0000000000000000000002 /* BlockMonitor.appex */,
+				BTST00000000000000000002 /* BlockTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -180,6 +202,29 @@
 			productReference = BE92B2682F0F5EC400D1AD74 /* Block.app */;
 			productType = "com.apple.product-type.application";
 		};
+		BTST00000000000000000003 /* BlockTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BTST0000000000000000000B /* Build configuration list for PBXNativeTarget "BlockTests" */;
+			buildPhases = (
+				BTST00000000000000000004 /* Sources */,
+				BTST00000000000000000005 /* Frameworks */,
+				BTST00000000000000000006 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BTST00000000000000000008 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				BTST00000000000000000001 /* BlockTests */,
+			);
+			name = BlockTests;
+			packageProductDependencies = (
+			);
+			productName = BlockTests;
+			productReference = BTST00000000000000000002 /* BlockTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -195,6 +240,10 @@
 					};
 					BE92B2672F0F5EC400D1AD74 = {
 						CreatedOnToolsVersion = 26.2;
+					};
+					BTST00000000000000000003 = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = BE92B2672F0F5EC400D1AD74;
 					};
 				};
 			};
@@ -214,6 +263,7 @@
 			targets = (
 				BE92B2672F0F5EC400D1AD74 /* Block */,
 				BD0000000000000000000006 /* BlockMonitor */,
+				BTST00000000000000000003 /* BlockTests */,
 			);
 		};
 /* End PBXProject section */
@@ -227,6 +277,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		BE92B2662F0F5EC400D1AD74 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BTST00000000000000000006 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -250,6 +307,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BTST00000000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -257,6 +321,11 @@
 			isa = PBXTargetDependency;
 			target = BD0000000000000000000006 /* BlockMonitor */;
 			targetProxy = BD000000000000000000000F /* PBXContainerItemProxy */;
+		};
+		BTST00000000000000000008 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BE92B2672F0F5EC400D1AD74 /* Block */;
+			targetProxy = BTST00000000000000000007 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -504,6 +573,56 @@
 			};
 			name = Release;
 		};
+		BTST00000000000000000009 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = DAG83US2FV;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 2.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = name.amitsankaran.Block.BlockTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Block.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Block";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+			};
+			name = Debug;
+		};
+		BTST0000000000000000000A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = DAG83US2FV;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 2.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = name.amitsankaran.Block.BlockTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Block.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Block";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -530,6 +649,15 @@
 			buildConfigurations = (
 				BE92B2742F0F5EC600D1AD74 /* Debug */,
 				BE92B2752F0F5EC600D1AD74 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BTST0000000000000000000B /* Build configuration list for PBXNativeTarget "BlockTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BTST00000000000000000009 /* Debug */,
+				BTST0000000000000000000A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -10,6 +10,13 @@ import Foundation
 import DeviceActivity
 #endif
 
+/// What relaunch should do with a schedule block's named ManagedSettings stores.
+enum ScheduleShieldIntent: Equatable {
+    case enforce
+    case holdRelease
+    case clear
+}
+
 /// Time-of-day weekly schedule for a blocking preset.
 ///
 /// `weekdays` follows `Calendar.Component.weekday` convention:
@@ -52,6 +59,57 @@ struct BlockingSchedule: Codable, Equatable, Hashable {
         let endDate = Calendar.current.date(from: DateComponents(hour: endHour, minute: endMinute)) ?? Date()
         let timeRange = "\(timeFormatter.string(from: startDate))–\(timeFormatter.string(from: endDate))"
         return "\(weekdaySummary) \(timeRange)"
+    }
+
+    /// True when `date` falls inside this schedule.
+    ///
+    /// The end minute is exclusive (a 09:00–17:00 window contains 16:59 and not 17:00).
+    /// A window that crosses midnight attributes the after-midnight portion to the
+    /// previous weekday, so Friday 22:00–02:00 still contains Saturday 01:00.
+    func contains(_ date: Date, calendar: Calendar = .current) -> Bool {
+        guard !weekdays.isEmpty else { return false }
+        let weekday = calendar.component(.weekday, from: date)
+        let minutes = calendar.component(.hour, from: date) * 60
+            + calendar.component(.minute, from: date)
+        if crossesMidnight {
+            if weekdays.contains(weekday), minutes >= startMinutesFromMidnight {
+                return true
+            }
+            let previousWeekday = weekday == 1 ? 7 : weekday - 1
+            return weekdays.contains(previousWeekday) && minutes < endMinutesFromMidnight
+        }
+        return weekdays.contains(weekday)
+            && minutes >= startMinutesFromMidnight
+            && minutes < endMinutesFromMidnight
+    }
+
+    /// End of the window that contains `date`, or nil when `date` is outside it.
+    /// Used to remember a mid-window release (cooldown, emergency) until that window ends.
+    func currentWindowEnd(from date: Date, calendar: Calendar = .current) -> Date? {
+        guard contains(date, calendar: calendar) else { return nil }
+        let minutes = calendar.component(.hour, from: date) * 60
+            + calendar.component(.minute, from: date)
+        let endIsTomorrow = crossesMidnight && minutes >= startMinutesFromMidnight
+        let endDay = endIsTomorrow
+            ? (calendar.date(byAdding: .day, value: 1, to: date) ?? date)
+            : date
+        var parts = calendar.dateComponents([.year, .month, .day], from: endDay)
+        parts.hour = endHour
+        parts.minute = endMinute
+        parts.second = 0
+        return calendar.date(from: parts)
+    }
+
+    /// What a relaunch should do with this schedule's named shield stores.
+    ///
+    /// - `enforce`: the window is active and was not explicitly released. Refresh the
+    ///   shield from the current lists and mark the block running.
+    /// - `holdRelease`: cooldown or emergency already lifted this window. Do not put
+    ///   the shield back, and do not leave a store up while the block looks inactive.
+    /// - `clear`: outside the window. A named store must not stay shielded.
+    func shieldIntent(at date: Date, userReleased: Bool, calendar: Calendar = .current) -> ScheduleShieldIntent {
+        guard contains(date, calendar: calendar) else { return .clear }
+        return userReleased ? .holdRelease : .enforce
     }
 
     var weekdaySummary: String {

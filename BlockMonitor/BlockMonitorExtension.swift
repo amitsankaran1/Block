@@ -37,6 +37,15 @@ class BlockMonitorExtension: DeviceActivityMonitor {
         guard let (kind, blockID) = Self.parse(activity) else { return }
         switch kind {
         case .schedule:
+            // `startMonitoring` while already inside the interval can deliver this
+            // immediately. A break, or a cooldown/emergency release, has to keep
+            // the shield down; the app reconciles the real window itself.
+            if BreakMonitoring.isOnBreak(blockID: blockID) { break }
+            if let until = SharedDefaults.suite.object(
+                forKey: SharedDefaults.Keys.scheduleReleasedUntil(blockID: blockID)
+            ) as? Date, Date() < until {
+                break
+            }
             BlockingActuator.start(blockID: blockID)
         case .lock:
             // Lockout window began — ensure the shield is up (idempotent; the

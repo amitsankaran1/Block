@@ -110,8 +110,13 @@ class CooldownManager: ObservableObject {
         }
 
         // Also turn off manual enable so the editor reflects the change.
-        if let block = BlockStore.shared.block(id: blockID), block.isEnabled {
-            BlockStore.shared.setEnabled(id: blockID, enabled: false)
+        if let block = BlockStore.shared.block(id: blockID) {
+            if block.isEnabled {
+                BlockStore.shared.setEnabled(id: blockID, enabled: false)
+            }
+            // The schedule monitor stays registered. Without this, the next
+            // relaunch sees an active window and puts the shield back.
+            SchedulingManager.shared.suppressScheduleShieldUntilWindowEnd(for: block)
         }
         SchedulingManager.shared.refresh()
         UsageLimitManager.shared.refresh()

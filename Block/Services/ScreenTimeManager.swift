@@ -27,8 +27,15 @@ class ScreenTimeManager: ObservableObject {
             try? await Task.sleep(nanoseconds: 100_000_000)
             checkAuthorizationStatus()
             restoreBlockingIfNeeded()
+            // Launch reconcile may have run before authorization was readable.
+            // Run it again so an in-window shield is refreshed and an ended
+            // window's named stores are actually cleared.
+            SchedulingManager.shared.reapplyAllSchedules()
             try? await Task.sleep(nanoseconds: 500_000_000)
             checkAuthorizationStatus()
+            if authorizationStatus == .approved {
+                SchedulingManager.shared.reapplyAllSchedules()
+            }
         }
     }
 
@@ -110,6 +117,7 @@ class ScreenTimeManager: ObservableObject {
             if block.isEnabled {
                 BlockStore.shared.setEnabled(id: block.id, enabled: false)
             }
+            SchedulingManager.shared.suppressScheduleShieldUntilWindowEnd(for: block)
         }
         CooldownManager.shared.cancel()
         SchedulingManager.shared.refresh()
