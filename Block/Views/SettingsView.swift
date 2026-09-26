@@ -12,6 +12,7 @@ struct SettingsView: View {
     @StateObject private var configStore = AppConfigurationStore.shared
     @StateObject private var screenTimeManager = ScreenTimeManager.shared
     @State private var showTypingChallenge = false
+    @State private var showClearAllConfirm = false
     @State private var isRequestingAuthorization = false
     #if DEBUG
     @State private var debugMenuActive = false
@@ -184,6 +185,31 @@ struct SettingsView: View {
                     }
                 }
                 .padding(.horizontal, 24)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Button { showClearAllConfirm = true } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "lock.open")
+                            Text("Clear all blocks")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(ArtNouveauButtonStyle(isProminent: true, gradient: ArtNouveauTheme.errorGradient))
+
+                    Text("Unblocks every app Tyri is holding, including blocks left over after the app restarts. Your lists stay as they are.")
+                        .font(.system(.footnote, design: .default))
+                        .foregroundColor(ArtNouveauTheme.secondaryLabel)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 24)
+            }
+            .alert("Clear all blocks?", isPresented: $showClearAllConfirm) {
+                Button("Clear", role: .destructive) {
+                    screenTimeManager.disableAllBlocks()
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("Every app Tyri is blocking will open again. Your lists won't change.")
             }
         }
     }
